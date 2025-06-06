@@ -1,0 +1,9 @@
+[gd_scene load_steps=3 format=3 uid="uid://d1e2f3g4h5i6j"]
+
+[ext_resource type="Script" uid="uid://depw4siadvbbv" path="res://scripts/Main.gd" id="1_main"]
+[ext_resource type="PackedScene" uid="uid://c4x5y607a8cac" path="res://scenes/CameraUI.tscn" id="4_cam_ui"]
+
+[node name="Main" type="Node"]
+script = ExtResource("1_main")
+
+[node name="CameraUI" parent="." instance=ExtResource("4_cam_ui")]
