@@ -14,11 +14,19 @@ permissions=["CAMERA"]
 
 [application]
 
-config/name="GodotCameraFeedSample"
-run/main_scene="uid://d1e2f3g4h5i6j"
+config/name="godot-camerafeed-demo"
+run/main_scene="uid://oiv4p8ii3am4"
 config/features=PackedStringArray("4.5")
 config/icon="res://icon.svg"
 config/run/main_scene="res://scenes/Main.tscn"
+
+[display]
+
+window/size/viewport_width=720
+window/size/viewport_height=1280
+window/stretch/mode="canvas_items"
+window/stretch/aspect="expand"
+window/handheld/orientation=1
 
 [ios]
 
