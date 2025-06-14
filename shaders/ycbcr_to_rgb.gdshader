@@ -5,7 +5,7 @@ uniform sampler2D rgb_texture;
 uniform sampler2D y_texture;
 // CbCr component texture (Feed ID 2 -> FEED_CBCR_IMAGE)
 uniform sampler2D cbcr_texture;
-
+// mode: 0 -> RGB, mode: 1 -> YCbCr
 uniform int mode : hint_range(0, 1);
 
 // YCbCr to RGB conversion (BT.601 standard)
