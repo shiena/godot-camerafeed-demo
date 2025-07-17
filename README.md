@@ -1,4 +1,4 @@
-# GodotCameraFeedSample
+# godot-camerafeed-demo
 
 ## Requirement
 
@@ -14,6 +14,15 @@
 
 Other platforms are currently being implemented.
 
-- Windows: https://github.com/godotengine/godot/pull/105476
-- iPhone: https://github.com/godotengine/godot/pull/106305
+- Windows: https://github.com/godotengine/godot/pull/108538
+- iOS: https://github.com/godotengine/godot/pull/106305
 - Web: https://github.com/godotengine/godot/pull/106784
+
+macOS and iOS are currently begin implemented CameraFeed::formats and CameraFeed::frame_changed signal.
+
+- https://github.com/godotengine/godot/pull/106777
+- https://github.com/godotengine/godot/pull/104809
+
+Support CameraServer.feeds_updated signal.
+
+- https://github.com/godotengine/godot/pull/108165
