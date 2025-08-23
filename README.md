@@ -26,3 +26,7 @@ macOS and iOS are currently begin implemented CameraFeed::formats and CameraFeed
 Support CameraServer.camera_feeds_updated signal.
 
 - https://github.com/godotengine/godot/pull/108165
+
+Defer `format_changed` and `frame_changed` signal for all camera feeds
+
+- https://github.com/godotengine/godot/pull/109594

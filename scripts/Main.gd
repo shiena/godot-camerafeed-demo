@@ -25,7 +25,7 @@ func _validate_platform() -> void:
 	if os_name in ["Windows", "Web"]:
 		push_warning("%s implementation is work in progress" % os_name)
 		if os_name == "Windows":
-			push_warning("see https://github.com/godotengine/godot/pull/105476")
+			push_warning("see https://github.com/godotengine/godot/pull/108538")
 		else:
 			push_warning("see https://github.com/godotengine/godot/pull/106784")
 	if os_name in ["macOS", "iOS"]:
