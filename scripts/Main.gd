@@ -52,7 +52,7 @@ func _reload_camera_list() -> void:
 				return
 
 	if not CameraServer.camera_feeds_updated.is_connected(_on_camera_feeds_updated):
-		CameraServer.camera_feeds_updated.connect(_on_camera_feeds_updated, ConnectFlags.CONNECT_DEFERRED)
+		CameraServer.camera_feeds_updated.connect(_on_camera_feeds_updated, ConnectFlags.CONNECT_ONE_SHOT)
 	if CameraServer.monitoring_feeds:
 		CameraServer.monitoring_feeds = false
 		await get_tree().process_frame
