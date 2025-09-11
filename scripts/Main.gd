@@ -115,8 +115,10 @@ func _update_format_list() -> void:
 	for format in formats:
 		var resolution := str(format["width"]) + "x" + str(format["height"])
 		var item := "%s - %s" % [format["format"], resolution]
-		if OS.get_name() == "Windows":
+		if format.has("frame_denominator") and format.has("frame_numerator"):
 			item += " : %s / %s" % [format["frame_denominator"], format["frame_numerator"]]
+		elif format.has("framerate_denominator") and format.has("framerate_numerator"):
+			item += " : %s / %s" % [format["framerate_numerator"], format["framerate_denominator"]]
 		format_list.add_item(item)
 
 	# Auto-select first format
