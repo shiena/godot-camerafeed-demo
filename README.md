@@ -18,15 +18,6 @@ Other platforms are currently being implemented.
 - iOS: https://github.com/godotengine/godot/pull/106305
 - Web: https://github.com/godotengine/godot/pull/106784
 
-macOS and iOS are currently begin implemented CameraFeed::formats and CameraFeed::frame_changed signal.
+macOS and iOS are currently begin implemented CameraFeed::formats
 
 - https://github.com/godotengine/godot/pull/106777
-- https://github.com/godotengine/godot/pull/104809
-
-Support CameraServer.camera_feeds_updated signal.
-
-- https://github.com/godotengine/godot/pull/108165
-
-Defer `format_changed` and `frame_changed` signal for all camera feeds
-
-- https://github.com/godotengine/godot/pull/109594
