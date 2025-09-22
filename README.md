@@ -21,3 +21,7 @@ Other platforms are currently being implemented.
 macOS and iOS are currently begin implemented CameraFeed::formats
 
 - https://github.com/godotengine/godot/pull/106777
+
+Android: Handle YUV_420_888 strides correctly in CameraFeed
+
+- https://github.com/godotengine/godot/pull/110720
