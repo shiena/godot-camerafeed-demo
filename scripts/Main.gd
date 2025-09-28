@@ -12,7 +12,7 @@ var _initialized: bool = false
 
 const defaultWebResolution: Dictionary = {
 	"width": 640,
-	"height": 480
+	"height": 480,
 }
 
 func _ready() -> void:
@@ -40,12 +40,13 @@ func _adjust_ui() -> void:
 	camera_preview.custom_minimum_size = camera_display.size
 	camera_preview.position = camera_display.size / 2
 
+
 func _reload_camera_list() -> void:
 	camera_list.clear()
 	format_list.clear()
 
 	var os_name := OS.get_name()
-	# Request camera permission on mobile
+	# Request camera permission on mobile.
 	if os_name in ["Android", "iOS"]:
 		var permissions = OS.get_granted_permissions()
 		if not "CAMERA" in permissions:
@@ -56,13 +57,16 @@ func _reload_camera_list() -> void:
 	if CameraServer.camera_feeds_updated.is_connected(_on_camera_feeds_updated):
 		CameraServer.camera_feeds_updated.disconnect(_on_camera_feeds_updated)
 	CameraServer.camera_feeds_updated.connect(_on_camera_feeds_updated, ConnectFlags.CONNECT_ONE_SHOT)
+
 	if CameraServer.monitoring_feeds:
 		CameraServer.monitoring_feeds = false
 		await get_tree().process_frame
+
 	CameraServer.monitoring_feeds = true
 
+
 func _on_camera_feeds_updated() -> void:
-	# Get available camera feeds
+	# Get available camera feeds.
 	var feeds = CameraServer.feeds()
 	if feeds.is_empty():
 		camera_list.add_item("No cameras found")
@@ -77,24 +81,26 @@ func _on_camera_feeds_updated() -> void:
 		var feed: CameraFeed = feeds[i]
 		camera_list.add_item(feed.get_name())
 
-	# Auto-select first camera
+	# Auto-select first camera.
 	camera_list.selected = 0
 	_on_camera_list_item_selected(0)
+
 
 func _on_camera_list_item_selected(index: int) -> void:
 	var camera_feeds := CameraServer.feeds()
 	if index < 0 or index >= camera_feeds.size():
 		return
 
-	# Stop previous camera if active
+	# Stop previous camera if active.
 	if camera_feed and camera_feed.feed_is_active:
 		camera_feed.feed_is_active = false
 
-	# Get selected camera feed
+	# Get selected camera feed.
 	camera_feed = camera_feeds[index]
 
-	# Update format list
+	# Update format list.
 	_update_format_list()
+
 
 func _update_format_list() -> void:
 	format_list.clear()
@@ -119,21 +125,25 @@ func _update_format_list() -> void:
 	for format in formats:
 		var resolution := str(format["width"]) + "x" + str(format["height"])
 		var item := "%s - %s" % [format["format"], resolution]
+
 		if format.has("frame_denominator") and format.has("frame_numerator"):
 			item += " : %s / %s" % [format["frame_numerator"], format["frame_denominator"]]
 		elif format.has("framerate_denominator") and format.has("framerate_numerator"):
 			item += " : %s / %s" % [format["framerate_numerator"], format["framerate_denominator"]]
 		format_list.add_item(item)
 
-	# Auto-select first format
+	# Auto-select first format.
 	format_list.selected = 0
 	_on_format_list_item_selected(0)
+
 
 func _on_format_list_item_selected(index: int) -> void:
 	if not camera_feed:
 		return
 
 	var formats := camera_feed.get_formats()
+	if index < 0 or index >= formats.size():
+		return
 	var os_name := OS.get_name()
 	if not os_name in ["macOS", "iOS"]:
 		if index < 0 or index >= formats.size():
@@ -142,6 +152,7 @@ func _on_format_list_item_selected(index: int) -> void:
 	camera_feed.feed_is_active = false
 	camera_feed.set_format(index, parameters)
 	_start_camera_feed()
+
 
 func _start_camera_feed() -> void:
 	if not camera_feed:
@@ -156,6 +167,7 @@ func _start_camera_feed() -> void:
 func _on_format_changed() -> void:
 	var datatype := camera_feed.get_datatype() as CameraFeed.FeedDataType
 	var preview_size := Vector2.ZERO
+
 	var mat: ShaderMaterial = camera_preview.material
 	var rgb_texture: CameraTexture = mat.get_shader_parameter("rgb_texture")
 	var y_texture: CameraTexture = mat.get_shader_parameter("y_texture")
@@ -166,6 +178,7 @@ func _on_format_changed() -> void:
 	y_texture.which_feed = CameraServer.FeedImage.FEED_Y_IMAGE
 	cbcr_texture.which_feed = CameraServer.FeedImage.FEED_CBCR_IMAGE
 	ycbcr_texture.which_feed = CameraServer.FEED_YCBCR_IMAGE
+
 	match datatype:
 		CameraFeed.FeedDataType.FEED_RGB:
 			rgb_texture.camera_feed_id = camera_feed.get_id()
@@ -187,6 +200,7 @@ func _on_format_changed() -> void:
 		_:
 			print("Skip formats that are not supported.")
 			return
+
 	var white_image := Image.create(int(preview_size.x), int(preview_size.y), false, Image.FORMAT_RGBA8)
 	white_image.fill(Color.WHITE)
 	camera_preview.texture = ImageTexture.create_from_image(white_image)
@@ -203,6 +217,7 @@ func _on_format_changed() -> void:
 
 	start_or_stop_button.text = "Stop"
 
+
 func _on_start_or_stop_button_pressed(change_label: bool = true) -> void:
 	if camera_feed and camera_feed.feed_is_active:
 		camera_feed.feed_is_active = false
@@ -214,6 +229,7 @@ func _on_start_or_stop_button_pressed(change_label: bool = true) -> void:
 		_start_camera_feed()
 		if change_label:
 			start_or_stop_button.text = "Stop"
+
 
 func _on_reload_button_pressed() -> void:
 	_on_start_or_stop_button_pressed(false)
