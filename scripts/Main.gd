@@ -207,6 +207,7 @@ func _on_format_changed() -> void:
 
 	var rot := camera_feed.feed_transform.get_rotation()
 	var degree := roundi(rad_to_deg(rot))
+	camera_preview.pivot_offset = camera_preview.size / 2
 	camera_preview.rotation = rot
 	camera_preview.custom_minimum_size.y = camera_display.size.y
 
