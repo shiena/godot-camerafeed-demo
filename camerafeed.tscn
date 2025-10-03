@@ -1,7 +1,7 @@
 [gd_scene load_steps=11 format=3 uid="uid://oiv4p8ii3am4"]
 
-[ext_resource type="Script" uid="uid://dxaoavn781kxe" path="res://scripts/Main.gd" id="2_1xqyj"]
-[ext_resource type="Shader" uid="uid://dhjh7s6i7jnlp" path="res://shaders/ycbcr_to_rgb.gdshader" id="2_d14r3"]
+[ext_resource type="Script" uid="uid://dxaoavn781kxe" path="res://camerafeed.gd" id="1_fuswq"]
+[ext_resource type="Shader" uid="uid://dhjh7s6i7jnlp" path="res://ycbcr_to_rgb.gdshader" id="2_0uyi5"]
 
 [sub_resource type="CameraTexture" id="CameraTexture_7c2aw"]
 
@@ -12,7 +12,7 @@
 [sub_resource type="CameraTexture" id="CameraTexture_rvslj"]
 
 [sub_resource type="ShaderMaterial" id="ShaderMaterial_lgiw1"]
-shader = ExtResource("2_d14r3")
+shader = ExtResource("2_0uyi5")
 shader_parameter/rgb_texture = SubResource("CameraTexture_nyeft")
 shader_parameter/y_texture = SubResource("CameraTexture_xep8u")
 shader_parameter/cbcr_texture = SubResource("CameraTexture_7c2aw")
@@ -48,7 +48,7 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-script = ExtResource("2_1xqyj")
+script = ExtResource("1_fuswq")
 
 [node name="Background" type="ColorRect" parent="."]
 layout_mode = 1
