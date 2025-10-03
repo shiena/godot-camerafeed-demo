@@ -147,12 +147,13 @@ func _start_camera_feed() -> void:
 	if not camera_feed:
 		return
 
-	if not camera_feed.frame_changed.is_connected(_on_frame_changed):
-		camera_feed.frame_changed.connect(_on_frame_changed, ConnectFlags.CONNECT_ONE_SHOT)
+	if not camera_feed.format_changed.is_connected(_on_format_changed):
+		camera_feed.format_changed.connect(_on_format_changed)
 	# Start the feed
 	camera_feed.feed_is_active = true
+	_on_format_changed()
 
-func _on_frame_changed() -> void:
+func _on_format_changed() -> void:
 	var datatype := camera_feed.get_datatype() as CameraFeed.FeedDataType
 	var preview_size := Vector2.ZERO
 	var mat: ShaderMaterial = camera_preview.material
