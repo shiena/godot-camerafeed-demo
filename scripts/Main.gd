@@ -33,7 +33,6 @@ func _validate_platform() -> void:
 	if os_name in ["macOS", "iOS"]:
 		push_warning("%s rendering is currently broken due to a bug" % os_name)
 		push_warning("see https://github.com/godotengine/godot/pull/106777")
-		push_warning("    https://github.com/godotengine/godot/pull/104809")
 
 func _adjust_ui() -> void:
 	camera_display.size = camera_display.get_parent_area_size() - Vector2.ONE * 40
