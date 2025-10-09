@@ -12,16 +12,25 @@
 
 ## Known limits
 
-Other platforms are currently being implemented.
+Pull requests have been proposed for Windows, iOS and Web.
 
-- Windows: https://github.com/godotengine/godot/pull/108538
-- iOS: https://github.com/godotengine/godot/pull/106305
-- Web: https://github.com/godotengine/godot/pull/106784
+- ~~https://github.com/godotengine/godot/pull/105476~~
+- https://github.com/godotengine/godot/pull/108538
+- https://github.com/godotengine/godot/pull/106305
+- https://github.com/godotengine/godot/pull/106784
 
-macOS and iOS are currently begin implemented CameraFeed::formats
+An alternative implementation using PipeWire for Linux.
 
+- https://github.com/godotengine/godot/pull/109500
+
+macOS and iOS are incomplete due to bugs.
+
+- https://github.com/godotengine/godot/pull/104809
 - https://github.com/godotengine/godot/pull/106777
 
-Android: Handle YUV_420_888 strides correctly in CameraFeed
+Other bugs
 
+- https://github.com/godotengine/godot/pull/108165
+- https://github.com/godotengine/godot/pull/109594
 - https://github.com/godotengine/godot/pull/110720
+- https://github.com/godotengine/godot/pull/111206
