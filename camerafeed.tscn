@@ -65,12 +65,13 @@ offset_left = 20.0
 offset_top = 20.0
 offset_right = 700.0
 offset_bottom = 1260.0
-stretch_mode = 1
+stretch_mode = 3
 
 [node name="CameraPreview" type="TextureRect" parent="CameraDisplay"]
 material = SubResource("ShaderMaterial_lgiw1")
 layout_mode = 2
-stretch_mode = 5
+expand_mode = 1
+stretch_mode = 6
 
 [node name="DrawerContainer" type="Control" parent="."]
 modulate = Color(1, 1, 1, 0.5019608)

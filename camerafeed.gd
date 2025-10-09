@@ -35,10 +35,13 @@ func _validate_platform() -> void:
 		push_warning("see https://github.com/godotengine/godot/pull/106777")
 
 func _adjust_ui() -> void:
-	camera_display.size = camera_display.get_parent_area_size() - Vector2.ONE * 40
-	camera_preview.custom_minimum_size = camera_display.size
-	camera_preview.position = camera_display.size / 2
+	if camera_feed and camera_feed.feed_is_active:
+		var rot := camera_feed.feed_transform.get_rotation()
+		camera_display.rotation = rot
 
+	camera_display.size = camera_display.get_parent_area_size() - Vector2.ONE * 40
+	camera_display.pivot_offset = camera_display.size / 2
+	camera_display.resized.connect(_adjust_ui, ConnectFlags.CONNECT_ONE_SHOT)
 
 func _reload_camera_list() -> void:
 	camera_list.clear()
@@ -206,9 +209,7 @@ func _on_format_changed() -> void:
 
 	var rot := camera_feed.feed_transform.get_rotation()
 	var degree := roundi(rad_to_deg(rot))
-	camera_preview.pivot_offset = camera_preview.size / 2
-	camera_preview.rotation = rot
-	camera_preview.custom_minimum_size.y = camera_display.size.y
+	camera_display.rotation = rot
 
 	if absi(degree) % 180 == 0:
 		camera_display.ratio = preview_size.x / preview_size.y
