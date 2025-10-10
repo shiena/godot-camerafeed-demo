@@ -203,6 +203,9 @@ func _on_format_changed() -> void:
 			print("Skip formats that are not supported.")
 			return
 
+	if (preview_size.round() <= Vector2.ZERO):
+		return
+
 	var white_image := Image.create(int(preview_size.x), int(preview_size.y), false, Image.FORMAT_RGBA8)
 	white_image.fill(Color.WHITE)
 	camera_preview.texture = ImageTexture.create_from_image(white_image)
