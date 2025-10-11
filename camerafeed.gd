@@ -49,7 +49,7 @@ func _reload_camera_list() -> void:
 
 	var os_name := OS.get_name()
 	# Request camera permission on mobile.
-	if os_name in ["Android", "iOS"]:
+	if os_name in ["Android"]:
 		var permissions = OS.get_granted_permissions()
 		if not "CAMERA" in permissions:
 			if not OS.request_permission("CAMERA"):
