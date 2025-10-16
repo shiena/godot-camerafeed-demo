@@ -1,7 +1,10 @@
 extends Control
 
 @onready var camera_display := $CameraDisplay
-@onready var camera_preview := $CameraDisplay/CameraPreview
+@onready var mirror_container := $CameraDisplay/MirrorContainer
+@onready var rotation_container := $CameraDisplay/MirrorContainer/RotationContainer
+@onready var aspect_container := $CameraDisplay/MirrorContainer/RotationContainer/AspectContainer
+@onready var camera_preview := $CameraDisplay/MirrorContainer/RotationContainer/AspectContainer/CameraPreview
 @onready var camera_list := $DrawerContainer/Drawer/DrawerContent/VBoxContainer/CameraList
 @onready var format_list := $DrawerContainer/Drawer/DrawerContent/VBoxContainer/FormatList
 @onready var start_or_stop_button := $DrawerContainer/Drawer/DrawerContent/VBoxContainer/ButtonContainer/StartOrStopButton
@@ -35,41 +38,69 @@ func _validate_platform() -> void:
 		push_warning("see https://github.com/godotengine/godot/pull/106777")
 
 func _adjust_ui() -> void:
-	if camera_feed and camera_feed.feed_is_active:
-		var rot := camera_feed.feed_transform.get_rotation()
-		camera_display.rotation = rot
-
+	# Rotation and mirroring are handled by MirrorContainer and RotationContainer
 	camera_display.size = camera_display.get_parent_area_size() - Vector2.ONE * 40
-	camera_display.pivot_offset = camera_display.size / 2
-	camera_display.resized.connect(_adjust_ui, ConnectFlags.CONNECT_ONE_SHOT)
+
+	# Set pivot_offset for rotation and mirror containers BEFORE any transformations
+	# These need to be set dynamically as their size changes with the parent
+	# Store current transformations
+	var saved_mirror_scale: Vector2 = mirror_container.scale if mirror_container else Vector2.ONE
+	var saved_rotation: float = rotation_container.rotation if rotation_container else 0.0
+
+	if mirror_container:
+		# Reset transformation, set pivot, then restore
+		mirror_container.scale = Vector2.ONE
+		mirror_container.pivot_offset = mirror_container.size / 2
+		mirror_container.scale = saved_mirror_scale
+
+	if rotation_container:
+		# Reset transformation, set pivot, then restore
+		rotation_container.rotation = 0.0
+		rotation_container.pivot_offset = rotation_container.size / 2
+		rotation_container.rotation = saved_rotation
+
+	# Reconnect resized signal only if not already connected
+	if not camera_display.resized.is_connected(_adjust_ui):
+		camera_display.resized.connect(_adjust_ui, ConnectFlags.CONNECT_ONE_SHOT)
 
 func _reload_camera_list() -> void:
 	camera_list.clear()
 	format_list.clear()
 
 	var os_name := OS.get_name()
+
 	# Request camera permission on mobile.
 	if os_name in ["Android"]:
-		var permissions = OS.get_granted_permissions()
+		var permissions := OS.get_granted_permissions()
 		if not "CAMERA" in permissions:
 			if not OS.request_permission("CAMERA"):
 				print("CAMERA permission not granted")
 				return
 
-	if CameraServer.camera_feeds_updated.is_connected(_on_camera_feeds_updated):
-		CameraServer.camera_feeds_updated.disconnect(_on_camera_feeds_updated)
-	CameraServer.camera_feeds_updated.connect(_on_camera_feeds_updated, ConnectFlags.CONNECT_ONE_SHOT)
-
-	if CameraServer.monitoring_feeds:
+	# Stop monitoring if already active
+	if CameraServer.is_monitoring_feeds:
 		CameraServer.monitoring_feeds = false
 		await get_tree().process_frame
 
+	# Reconnect signal before starting monitoring
+	# This ensures the signal is ready when monitoring starts
+	if CameraServer.camera_feeds_updated.is_connected(_on_camera_feeds_updated):
+		CameraServer.camera_feeds_updated.disconnect(_on_camera_feeds_updated)
+	CameraServer.camera_feeds_updated.connect(_on_camera_feeds_updated)
+
+	# Start monitoring - this will trigger camera_feeds_updated signal
 	CameraServer.monitoring_feeds = true
 
 
 func _on_camera_feeds_updated() -> void:
+	# Defer processing to next frame to ensure monitoring is fully active
+	call_deferred("_process_camera_feeds")
+
+
+func _process_camera_feeds() -> void:
 	# Get available camera feeds.
 	var feeds = CameraServer.feeds()
+
 	if feeds.is_empty():
 		camera_list.add_item("No cameras found")
 		camera_list.disabled = true
@@ -84,8 +115,7 @@ func _on_camera_feeds_updated() -> void:
 		camera_list.add_item(feed.get_name())
 
 	# Auto-select first camera.
-	camera_list.selected = 0
-	_on_camera_list_item_selected(0)
+	_on_camera_list_item_selected(camera_list.selected)
 
 
 func _on_camera_list_item_selected(index: int) -> void:
@@ -93,15 +123,19 @@ func _on_camera_list_item_selected(index: int) -> void:
 	if index < 0 or index >= camera_feeds.size():
 		return
 
-	# Stop previous camera if active.
+	# Stop previous camera if active and wait for deactivation to complete
 	if camera_feed and camera_feed.feed_is_active:
 		camera_feed.feed_is_active = false
+		# Wait for camera hardware to fully deactivate
+		# Note: active flag becomes false immediately, but hardware cleanup takes time
+		await get_tree().create_timer(0.1).timeout
 
-	# Get selected camera feed.
+	# Switch to selected camera feed
 	camera_feed = camera_feeds[index]
 
-	# Update format list.
-	_update_format_list()
+	# Update format list and auto-select format 0
+	# This will trigger preview start via _on_format_list_item_selected()
+	await _update_format_list()
 
 
 func _update_format_list() -> void:
@@ -110,13 +144,13 @@ func _update_format_list() -> void:
 	if not camera_feed:
 		return
 
-	var formats = camera_feed.get_formats()
+	var formats := camera_feed.get_formats()
 	if formats.is_empty():
 		var os_name := OS.get_name()
 		if os_name in ["macOS", "iOS"]:
 			push_warning("%s is not supported CameraFeed formats" % os_name)
 			push_warning("see https://github.com/godotengine/godot/pull/106777")
-		
+
 		format_list.add_item("No formats available")
 		format_list.disabled = true
 		start_or_stop_button.disabled = true
@@ -125,8 +159,13 @@ func _update_format_list() -> void:
 	format_list.disabled = false
 	start_or_stop_button.disabled = false
 	for format in formats:
-		var resolution := str(format["width"]) + "x" + str(format["height"])
-		var item := "%s - %s" % [format["format"], resolution]
+		# Safely access dictionary keys to prevent errors
+		var width: int = format.get("width", 0)
+		var height: int = format.get("height", 0)
+		var format_name: String = format.get("format", "Unknown")
+
+		var resolution := str(width) + "x" + str(height)
+		var item := "%s - %s" % [format_name, resolution]
 
 		if format.has("frame_denominator") and format.has("frame_numerator"):
 			item += " : %s / %s" % [format["frame_numerator"], format["frame_denominator"]]
@@ -134,9 +173,9 @@ func _update_format_list() -> void:
 			item += " : %s / %s" % [format["framerate_numerator"], format["framerate_denominator"]]
 		format_list.add_item(item)
 
-	# Auto-select first format.
+	# Auto-select first format and wait for activation to complete
 	format_list.selected = 0
-	_on_format_list_item_selected(0)
+	await _on_format_list_item_selected(0)
 
 
 func _on_format_list_item_selected(index: int) -> void:
@@ -144,15 +183,29 @@ func _on_format_list_item_selected(index: int) -> void:
 		return
 
 	var formats := camera_feed.get_formats()
-	if index < 0 or index >= formats.size():
-		return
 	var os_name := OS.get_name()
+
+	# Validate format index (skip for macOS/iOS due to format limitations)
 	if not os_name in ["macOS", "iOS"]:
 		if index < 0 or index >= formats.size():
 			return
+
+	# Deactivate current feed if active and wait for completion
+	# This ensures clean state before format change
+	if camera_feed.feed_is_active:
+		camera_feed.feed_is_active = false
+		# Wait for camera hardware to fully deactivate
+		# Note: active flag becomes false immediately, but hardware cleanup takes time
+		await get_tree().create_timer(0.1).timeout
+
+	# Set new format with platform-specific parameters
 	var parameters: Dictionary = defaultWebResolution if os_name == "Web" else {}
-	camera_feed.feed_is_active = false
 	camera_feed.set_format(index, parameters)
+
+	# Wait before starting to ensure format is set
+	await get_tree().process_frame
+
+	# Start preview with new format
 	_start_camera_feed()
 
 
@@ -160,71 +213,155 @@ func _start_camera_feed() -> void:
 	if not camera_feed:
 		return
 
-	if not camera_feed.format_changed.is_connected(_on_format_changed):
-		camera_feed.format_changed.connect(_on_format_changed)
-	# Start the feed
+	# Connect frame_changed signal if not already connected
+	# This will be called every frame, allowing us to respond to feed_transform updates
+	if not camera_feed.frame_changed.is_connected(_on_frame_changed):
+		camera_feed.frame_changed.connect(_on_frame_changed)
+
+	# Activate the feed (will trigger frame_changed signal on first frame)
 	camera_feed.feed_is_active = true
-	_on_format_changed()
 
-func _on_format_changed() -> void:
-	var datatype := camera_feed.get_datatype() as CameraFeed.FeedDataType
-	var preview_size := Vector2.ZERO
 
-	var mat: ShaderMaterial = camera_preview.material
-	var rgb_texture: CameraTexture = mat.get_shader_parameter("rgb_texture")
-	var y_texture: CameraTexture = mat.get_shader_parameter("y_texture")
-	var cbcr_texture: CameraTexture = mat.get_shader_parameter("cbcr_texture")
-	var ycbcr_texture: CameraTexture = mat.get_shader_parameter("ycbcr_texture")
-
-	rgb_texture.which_feed = CameraServer.FeedImage.FEED_RGBA_IMAGE
-	y_texture.which_feed = CameraServer.FeedImage.FEED_Y_IMAGE
-	cbcr_texture.which_feed = CameraServer.FeedImage.FEED_CBCR_IMAGE
-	ycbcr_texture.which_feed = CameraServer.FEED_YCBCR_IMAGE
-
-	match datatype:
-		CameraFeed.FeedDataType.FEED_RGB:
-			rgb_texture.camera_feed_id = camera_feed.get_id()
-			mat.set_shader_parameter("rgb_texture", rgb_texture)
-			mat.set_shader_parameter("mode", 0)
-			preview_size = rgb_texture.get_size()
-		CameraFeed.FeedDataType.FEED_YCBCR_SEP:
-			y_texture.camera_feed_id = camera_feed.get_id()
-			cbcr_texture.camera_feed_id = camera_feed.get_id()
-			mat.set_shader_parameter("y_texture", y_texture)
-			mat.set_shader_parameter("cbcr_texture", cbcr_texture)
-			mat.set_shader_parameter("mode", 1)
-			preview_size = y_texture.get_size()
-		CameraFeed.FeedDataType.FEED_YCBCR:
-			ycbcr_texture.camera_feed_id = camera_feed.get_id()
-			mat.set_shader_parameter("ycbcr_texture", ycbcr_texture)
-			mat.set_shader_parameter("mode", 2)
-			preview_size = ycbcr_texture.get_size()
-		_:
-			print("Skip formats that are not supported.")
-			return
-
-	if (preview_size.round() <= Vector2.ZERO):
+func _update_scene_transform() -> void:
+	if not camera_feed or not camera_feed.feed_is_active:
 		return
 
-	var white_image := Image.create(int(preview_size.x), int(preview_size.y), false, Image.FORMAT_RGBA8)
-	white_image.fill(Color.WHITE)
-	camera_preview.texture = ImageTexture.create_from_image(white_image)
+	# Safety check: ensure formats are available
+	var formats = camera_feed.get_formats()
+	if formats.is_empty():
+		return
 
-	var rot := camera_feed.feed_transform.get_rotation()
-	var degree := roundi(rad_to_deg(rot))
-	camera_display.rotation = rot
+	var mat: ShaderMaterial = camera_preview.material
+	if not mat:
+		return
 
-	if absi(degree) % 180 == 0:
-		camera_display.ratio = preview_size.x / preview_size.y
+	# Get texture size to calculate aspect ratio
+	var preview_size := Vector2.ZERO
+	var datatype := camera_feed.get_datatype() as CameraFeed.FeedDataType
+	match datatype:
+		CameraFeed.FeedDataType.FEED_RGB:
+			var rgb_texture: CameraTexture = mat.get_shader_parameter("rgb_texture")
+			if rgb_texture:
+				preview_size = rgb_texture.get_size()
+		CameraFeed.FeedDataType.FEED_YCBCR_SEP:
+			var y_texture: CameraTexture = mat.get_shader_parameter("y_texture")
+			if y_texture:
+				preview_size = y_texture.get_size()
+		CameraFeed.FeedDataType.FEED_YCBCR:
+			var ycbcr_texture: CameraTexture = mat.get_shader_parameter("ycbcr_texture")
+			if ycbcr_texture:
+				preview_size = ycbcr_texture.get_size()
+
+	if preview_size.round() <= Vector2.ZERO:
+		return
+
+	# Extract rotation and mirroring from feed_transform
+	# camera_android.cpp provides correctly ordered transform (scale then rotate)
+	var feed_transform := camera_feed.feed_transform
+	var rotation_angle := feed_transform.get_rotation()
+
+	# Determine device orientation from display size
+	# Camera sensor rotation angle doesn't reliably indicate device orientation
+	var display_size := DisplayServer.window_get_size()
+	var is_display_landscape := display_size.x > display_size.y
+
+	# Detect front camera directly from camera position
+	var is_front_camera := camera_feed.get_position() == CameraFeed.FeedPosition.FEED_FRONT
+
+	# Adjust rotation and mirroring based on device orientation
+	# camera_android.cpp calculates: rotationAngle = sensorOrientation - displayRotation
+	# - Portrait: sensorOrientation(90°) - displayRotation(0°) = 90°
+	# - Landscape: sensorOrientation(90°) - displayRotation(90°) = 0°
+
+	var adjusted_rotation := rotation_angle
+	var mirror_scale := Vector2(-1.0 if is_front_camera else 1.0, 1.0)
+
+	# Apply transformations
+	# pivot_offset is already set by _adjust_ui()
+	# Order: MirrorContainer (scale) -> RotationContainer (rotation) -> CameraPreview
+	mirror_container.scale = mirror_scale
+	rotation_container.rotation = adjusted_rotation
+
+	# Adjust aspect ratio based on device orientation
+	# Camera sensor is landscape (wider than tall), but display orientation varies
+	if is_display_landscape:
+		# Device in landscape - keep horizontal aspect ratio
+		aspect_container.ratio = preview_size.x / preview_size.y
 	else:
-		camera_display.ratio = preview_size.y / preview_size.x
+		# Device in portrait - swap to vertical aspect ratio
+		aspect_container.ratio = preview_size.y / preview_size.x
 
-	start_or_stop_button.text = "Stop"
+func _on_frame_changed() -> void:
+	"""Called when camera frame is updated. Sets up textures on first frame and updates transform."""
+	if not camera_feed or not camera_feed.feed_is_active:
+		return
+
+	# Safety check: ensure formats are available
+	# This can be empty during camera reinitialization (e.g., during screen rotation)
+	var formats = camera_feed.get_formats()
+	if formats.is_empty():
+		print("Warning: camera formats empty, skipping frame update")
+		return
+
+	# On first frame, set up textures
+	if camera_preview.texture == null:
+		var datatype := camera_feed.get_datatype() as CameraFeed.FeedDataType
+		var preview_size := Vector2.ZERO
+
+		var mat: ShaderMaterial = camera_preview.material
+		var rgb_texture: CameraTexture = mat.get_shader_parameter("rgb_texture")
+		var y_texture: CameraTexture = mat.get_shader_parameter("y_texture")
+		var cbcr_texture: CameraTexture = mat.get_shader_parameter("cbcr_texture")
+		var ycbcr_texture: CameraTexture = mat.get_shader_parameter("ycbcr_texture")
+
+		# Configure texture feed types
+		rgb_texture.which_feed = CameraServer.FeedImage.FEED_RGBA_IMAGE
+		y_texture.which_feed = CameraServer.FeedImage.FEED_Y_IMAGE
+		cbcr_texture.which_feed = CameraServer.FeedImage.FEED_CBCR_IMAGE
+		ycbcr_texture.which_feed = CameraServer.FEED_YCBCR_IMAGE
+
+		# Set up textures based on data type
+		match datatype:
+			CameraFeed.FeedDataType.FEED_RGB:
+				rgb_texture.camera_feed_id = camera_feed.get_id()
+				mat.set_shader_parameter("rgb_texture", rgb_texture)
+				mat.set_shader_parameter("mode", 0)
+				preview_size = rgb_texture.get_size()
+			CameraFeed.FeedDataType.FEED_YCBCR_SEP:
+				y_texture.camera_feed_id = camera_feed.get_id()
+				cbcr_texture.camera_feed_id = camera_feed.get_id()
+				mat.set_shader_parameter("y_texture", y_texture)
+				mat.set_shader_parameter("cbcr_texture", cbcr_texture)
+				mat.set_shader_parameter("mode", 1)
+				preview_size = y_texture.get_size()
+			CameraFeed.FeedDataType.FEED_YCBCR:
+				ycbcr_texture.camera_feed_id = camera_feed.get_id()
+				mat.set_shader_parameter("ycbcr_texture", ycbcr_texture)
+				mat.set_shader_parameter("mode", 2)
+				preview_size = ycbcr_texture.get_size()
+			_:
+				print("Skip formats that are not supported.")
+				return
+
+		if preview_size.round() <= Vector2.ZERO:
+			return
+
+		# Create placeholder texture with correct size
+		var white_image := Image.create(int(preview_size.x), int(preview_size.y), false, Image.FORMAT_RGBA8)
+		white_image.fill(Color.WHITE)
+		camera_preview.texture = ImageTexture.create_from_image(white_image)
+
+		# Update UI state
+		start_or_stop_button.text = "Stop"
+
+	# Update scene transform every frame (feed_transform may have changed due to device rotation)
+	_update_scene_transform()
 
 
 func _on_start_or_stop_button_pressed(change_label: bool = true) -> void:
 	if camera_feed and camera_feed.feed_is_active:
 		camera_feed.feed_is_active = false
+		await get_tree().process_frame
 		camera_preview.texture = null
 		camera_preview.rotation = 0
 		if change_label:
@@ -241,8 +378,17 @@ func _on_reload_button_pressed() -> void:
 
 
 func _notification(what: int) -> void:
-	if what == NOTIFICATION_RESIZED and _initialized:
-		_adjust_ui()
+	if not _initialized:
+		return
+
+	match what:
+		NOTIFICATION_RESIZED:
+			_adjust_ui()
+		NOTIFICATION_WM_SIZE_CHANGED:
+			# Screen orientation changed (e.g., device rotation on mobile)
+			# Adjust UI to update sizes and pivot_offset
+			# Transform update will happen automatically on next frame_changed signal
+			_adjust_ui()
 
 
 func _exit_tree() -> void:
