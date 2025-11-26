@@ -67,9 +67,11 @@ func _adjust_ui() -> void:
 		rotation_container.pivot_offset = rotation_container.size / 2
 		rotation_container.rotation = saved_rotation
 
-	# Reconnect resized signal only if not already connected
-	if not camera_display.resized.is_connected(_adjust_ui):
-		camera_display.resized.connect(_adjust_ui, ConnectFlags.CONNECT_ONE_SHOT)
+	# Reconnect resized signal for next resize event
+	# Disconnect first to avoid duplicate connections, then connect with ONE_SHOT
+	if camera_display.resized.is_connected(_adjust_ui):
+		camera_display.resized.disconnect(_adjust_ui)
+	camera_display.resized.connect(_adjust_ui, ConnectFlags.CONNECT_ONE_SHOT)
 
 func _reload_camera_list() -> void:
 	camera_list.clear()
