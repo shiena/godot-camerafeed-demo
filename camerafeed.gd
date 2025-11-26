@@ -17,6 +17,9 @@ enum ShaderMode { RGB = 0, YCBCR_SEP = 1, YCBCR = 2 }
 
 var camera_feed: CameraFeed
 var _initialized: bool = false
+var _cached_formats: Array = []
+var _last_feed_transform: Transform2D
+var _texture_initialized: bool = false
 
 const defaultWebResolution: Dictionary = {
 	"width": 640,
@@ -137,6 +140,7 @@ func _on_camera_list_item_selected(index: int) -> void:
 
 	# Switch to selected camera feed
 	camera_feed = camera_feeds[index]
+	_cached_formats = []
 
 	# Update format list and auto-select format 0
 	# This will trigger preview start via _on_format_list_item_selected()
@@ -149,8 +153,8 @@ func _update_format_list() -> void:
 	if not camera_feed:
 		return
 
-	var formats := camera_feed.get_formats()
-	if formats.is_empty():
+	_cached_formats = camera_feed.get_formats()
+	if _cached_formats.is_empty():
 		var os_name := OS.get_name()
 		if os_name in ["macOS", "iOS"]:
 			push_warning("%s is not supported CameraFeed formats" % os_name)
@@ -163,7 +167,7 @@ func _update_format_list() -> void:
 
 	format_list.disabled = false
 	start_or_stop_button.disabled = false
-	for format in formats:
+	for format in _cached_formats:
 		# Safely access dictionary keys to prevent errors
 		var width: int = format.get("width", 0)
 		var height: int = format.get("height", 0)
@@ -187,12 +191,11 @@ func _on_format_list_item_selected(index: int) -> void:
 	if not camera_feed:
 		return
 
-	var formats := camera_feed.get_formats()
 	var os_name := OS.get_name()
 
 	# Validate format index (skip for macOS/iOS due to format limitations)
 	if not os_name in ["macOS", "iOS"]:
-		if index < 0 or index >= formats.size():
+		if index < 0 or index >= _cached_formats.size():
 			return
 
 	# Deactivate current feed if active and wait for completion
@@ -218,6 +221,10 @@ func _start_camera_feed() -> void:
 	if not camera_feed:
 		return
 
+	# Reset texture initialization flag for new feed
+	_texture_initialized = false
+	_last_feed_transform = Transform2D()
+
 	# Connect frame_changed signal if not already connected
 	# This will be called every frame, allowing us to respond to feed_transform updates
 	if not camera_feed.frame_changed.is_connected(_on_frame_changed):
@@ -231,9 +238,8 @@ func _update_scene_transform() -> void:
 	if not camera_feed or not camera_feed.feed_is_active:
 		return
 
-	# Safety check: ensure formats are available
-	var formats = camera_feed.get_formats()
-	if formats.is_empty():
+	# Safety check: ensure formats are available (use cached formats)
+	if _cached_formats.is_empty():
 		return
 
 	var mat: ShaderMaterial = camera_preview.material
@@ -301,15 +307,14 @@ func _on_frame_changed() -> void:
 	if not camera_feed or not camera_feed.feed_is_active:
 		return
 
-	# Safety check: ensure formats are available
+	# Safety check: ensure formats are available (use cached formats)
 	# This can be empty during camera reinitialization (e.g., during screen rotation)
-	var formats = camera_feed.get_formats()
-	if formats.is_empty():
+	if _cached_formats.is_empty():
 		print("Warning: camera formats empty, skipping frame update")
 		return
 
 	# On first frame, set up textures
-	if camera_preview.texture == null:
+	if not _texture_initialized:
 		var datatype := camera_feed.get_datatype() as CameraFeed.FeedDataType
 		var preview_size := Vector2.ZERO
 
@@ -356,11 +361,17 @@ func _on_frame_changed() -> void:
 		white_image.fill(Color.WHITE)
 		camera_preview.texture = ImageTexture.create_from_image(white_image)
 
+		# Mark texture as initialized
+		_texture_initialized = true
+
 		# Update UI state
 		start_or_stop_button.text = "Stop"
 
-	# Update scene transform every frame (feed_transform may have changed due to device rotation)
-	_update_scene_transform()
+	# Update scene transform only when feed_transform changes
+	var current_transform := camera_feed.feed_transform
+	if current_transform != _last_feed_transform:
+		_last_feed_transform = current_transform
+		_update_scene_transform()
 
 
 func _on_start_or_stop_button_pressed(change_label: bool = true) -> void:
@@ -369,6 +380,7 @@ func _on_start_or_stop_button_pressed(change_label: bool = true) -> void:
 		await get_tree().process_frame
 		camera_preview.texture = null
 		camera_preview.rotation = 0
+		_texture_initialized = false
 		if change_label:
 			start_or_stop_button.text = "Start"
 	else:
