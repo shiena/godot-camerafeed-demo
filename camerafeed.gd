@@ -1,5 +1,10 @@
 extends Control
 
+const CAMERA_DEACTIVATION_DELAY := 0.1
+const DISPLAY_PADDING := 40.0
+
+enum ShaderMode { RGB = 0, YCBCR_SEP = 1, YCBCR = 2 }
+
 @onready var camera_display := $CameraDisplay
 @onready var mirror_container := $CameraDisplay/MirrorContainer
 @onready var rotation_container := $CameraDisplay/MirrorContainer/RotationContainer
@@ -39,7 +44,7 @@ func _validate_platform() -> void:
 
 func _adjust_ui() -> void:
 	# Rotation and mirroring are handled by MirrorContainer and RotationContainer
-	camera_display.size = camera_display.get_parent_area_size() - Vector2.ONE * 40
+	camera_display.size = camera_display.get_parent_area_size() - Vector2.ONE * DISPLAY_PADDING
 
 	# Set pivot_offset for rotation and mirror containers BEFORE any transformations
 	# These need to be set dynamically as their size changes with the parent
@@ -128,7 +133,7 @@ func _on_camera_list_item_selected(index: int) -> void:
 		camera_feed.feed_is_active = false
 		# Wait for camera hardware to fully deactivate
 		# Note: active flag becomes false immediately, but hardware cleanup takes time
-		await get_tree().create_timer(0.1).timeout
+		await get_tree().create_timer(CAMERA_DEACTIVATION_DELAY).timeout
 
 	# Switch to selected camera feed
 	camera_feed = camera_feeds[index]
@@ -196,7 +201,7 @@ func _on_format_list_item_selected(index: int) -> void:
 		camera_feed.feed_is_active = false
 		# Wait for camera hardware to fully deactivate
 		# Note: active flag becomes false immediately, but hardware cleanup takes time
-		await get_tree().create_timer(0.1).timeout
+		await get_tree().create_timer(CAMERA_DEACTIVATION_DELAY).timeout
 
 	# Set new format with platform-specific parameters
 	var parameters: Dictionary = defaultWebResolution if os_name == "Web" else {}
@@ -325,19 +330,19 @@ func _on_frame_changed() -> void:
 			CameraFeed.FeedDataType.FEED_RGB:
 				rgb_texture.camera_feed_id = camera_feed.get_id()
 				mat.set_shader_parameter("rgb_texture", rgb_texture)
-				mat.set_shader_parameter("mode", 0)
+				mat.set_shader_parameter("mode", ShaderMode.RGB)
 				preview_size = rgb_texture.get_size()
 			CameraFeed.FeedDataType.FEED_YCBCR_SEP:
 				y_texture.camera_feed_id = camera_feed.get_id()
 				cbcr_texture.camera_feed_id = camera_feed.get_id()
 				mat.set_shader_parameter("y_texture", y_texture)
 				mat.set_shader_parameter("cbcr_texture", cbcr_texture)
-				mat.set_shader_parameter("mode", 1)
+				mat.set_shader_parameter("mode", ShaderMode.YCBCR_SEP)
 				preview_size = y_texture.get_size()
 			CameraFeed.FeedDataType.FEED_YCBCR:
 				ycbcr_texture.camera_feed_id = camera_feed.get_id()
 				mat.set_shader_parameter("ycbcr_texture", ycbcr_texture)
-				mat.set_shader_parameter("mode", 2)
+				mat.set_shader_parameter("mode", ShaderMode.YCBCR)
 				preview_size = ycbcr_texture.get_size()
 			_:
 				print("Skip formats that are not supported.")
