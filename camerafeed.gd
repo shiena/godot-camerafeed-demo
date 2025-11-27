@@ -81,19 +81,14 @@ func _reload_camera_list() -> void:
 		CameraServer.monitoring_feeds = false
 		await get_tree().process_frame
 
-	# Reconnect signal before starting monitoring
-	if CameraServer.camera_feeds_updated.is_connected(_on_camera_feeds_updated):
-		CameraServer.camera_feeds_updated.disconnect(_on_camera_feeds_updated)
-	CameraServer.camera_feeds_updated.connect(_on_camera_feeds_updated)
+	# DEFERRED ensures callback runs on main thread
+	if not CameraServer.camera_feeds_updated.is_connected(_on_camera_feeds_updated):
+		CameraServer.camera_feeds_updated.connect(_on_camera_feeds_updated, ConnectFlags.CONNECT_DEFERRED)
 
 	CameraServer.monitoring_feeds = true
 
 
 func _on_camera_feeds_updated() -> void:
-	call_deferred("_process_camera_feeds")
-
-
-func _process_camera_feeds() -> void:
 	var feeds := CameraServer.feeds()
 
 	# Skip if feed list hasn't changed
