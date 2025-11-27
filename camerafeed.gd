@@ -96,6 +96,19 @@ func _on_camera_feeds_updated() -> void:
 func _process_camera_feeds() -> void:
 	var feeds := CameraServer.feeds()
 
+	# Skip if feed list hasn't changed
+	if feeds.size() == camera_list.item_count:
+		var all_match := true
+		for i in feeds.size():
+			if feeds[i].get_name() != camera_list.get_item_text(i):
+				all_match = false
+				break
+		if all_match:
+			return
+
+	camera_list.clear()
+	format_list.clear()
+
 	if feeds.is_empty():
 		camera_list.add_item("No cameras found")
 		camera_list.disabled = true
