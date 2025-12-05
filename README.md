@@ -16,7 +16,8 @@ Pull requests have been proposed for Windows, iOS and Web.
 
 - ~~https://github.com/godotengine/godot/pull/105476~~
 - https://github.com/godotengine/godot/pull/108538
-- https://github.com/godotengine/godot/pull/106305
+- ~~https://github.com/godotengine/godot/pull/106305~~
+- https://github.com/godot-sdk-integrations/godot-ios-plugins/pull/89
 - https://github.com/godotengine/godot/pull/106784
 
 An alternative implementation using PipeWire for Linux.
