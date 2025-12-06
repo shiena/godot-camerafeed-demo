@@ -35,3 +35,9 @@ Other bugs
 - https://github.com/godotengine/godot/pull/109594
 - https://github.com/godotengine/godot/pull/110720
 - https://github.com/godotengine/godot/pull/111206
+
+## Contributing
+
+This demo is being contributed to the official Godot demo projects.
+
+- https://github.com/godotengine/godot-demo-projects/pull/1225
