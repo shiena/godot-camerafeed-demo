@@ -227,12 +227,23 @@ func _update_scene_transform() -> void:
 	# Apply rotation from feed_transform
 	rotation_container.rotation = camera_feed.feed_transform.get_rotation()
 
-	# Adjust aspect ratio based on device orientation
+	# Adjust aspect ratio based on feed rotation
+	# Check if feed_transform has 90° or 270° rotation (portrait camera output)
+	var rotation_deg := rad_to_deg(camera_feed.feed_transform.get_rotation())
+	var is_rotated_90_or_270 := absf(fmod(absf(rotation_deg) + 45.0, 180.0) - 45.0) < 1.0
+
+	# DEBUG: Log aspect ratio calculation
 	var display_size := DisplayServer.window_get_size()
-	if display_size.x > display_size.y:
-		aspect_container.ratio = preview_size.x / preview_size.y
-	else:
+	print("[AspectRatio] display_size=%s, preview_size=%s, rotation=%.1f°, is_rotated=%s" % [display_size, preview_size, rotation_deg, is_rotated_90_or_270])
+
+	if is_rotated_90_or_270:
+		# Camera output is rotated, swap aspect ratio
 		aspect_container.ratio = preview_size.y / preview_size.x
+	else:
+		# Camera output is normal orientation (landscape)
+		aspect_container.ratio = preview_size.x / preview_size.y
+
+	print("[AspectRatio] final ratio=%.3f" % aspect_container.ratio)
 
 
 func _get_preview_size(mat: ShaderMaterial) -> Vector2:
