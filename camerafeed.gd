@@ -219,43 +219,19 @@ func _update_scene_transform() -> void:
 	var is_front_camera := camera_feed.get_position() == CameraFeed.FeedPosition.FEED_FRONT
 	mirror_container.scale = Vector2(-1.0 if is_front_camera else 1.0, 1.0)
 
+	var feed_transform := camera_feed.feed_transform
+	var rotation_deg: float = abs(rad_to_deg(feed_transform.get_rotation()))
+	var is_rotated := (rotation_deg > 45 and rotation_deg < 135) or (rotation_deg > 225 and rotation_deg < 315)
+
+	# Apply rotation (Web: browser handles display, Others: use feed_transform)
+	rotation_container.rotation = 0.0 if OS.get_name() == "Web" else feed_transform.get_rotation()
+
+	# Adjust aspect ratio based on rotation and screen orientation
 	var display_size := DisplayServer.window_get_size()
 	var screen_is_landscape := display_size.x > display_size.y
-
-	if OS.get_name() == "Web":
-		var feed_transform := camera_feed.feed_transform
-
-		# Web: No rotation applied to container (browser handles display)
-		rotation_container.rotation = 0
-
-		# Determine orientation from feed_transform rotation
-		var rotation_deg: float = abs(rad_to_deg(feed_transform.get_rotation()))
-		# 90° or 270° means landscape
-		var is_landscape: bool = (rotation_deg > 45 and rotation_deg < 135) or (rotation_deg > 225 and rotation_deg < 315)
-
-		# AspectContainer ratio based on rotation
-		var larger := maxf(preview_size.x, preview_size.y)
-		var smaller := minf(preview_size.x, preview_size.y)
-		if is_landscape:  # 90° or 270°
-			aspect_container.ratio = larger / smaller
-		else:  # 0° or 180° (portrait)
-			aspect_container.ratio = smaller / larger
-	else:
-		# Other platforms: Use feed_transform for rotation
-		var feed_transform := camera_feed.feed_transform
-		rotation_container.rotation = feed_transform.get_rotation()
-
-		# Adjust aspect ratio based on rotation
-		var rotation_deg: float = abs(rad_to_deg(feed_transform.get_rotation()))
-		# 90° or 270° means the camera is rotated
-		var is_rotated: bool = (rotation_deg > 45 and rotation_deg < 135) or (rotation_deg > 225 and rotation_deg < 315)
-		if is_rotated:
-			aspect_container.ratio = preview_size.x / preview_size.y
-		else:
-			if screen_is_landscape:
-				aspect_container.ratio = preview_size.x / preview_size.y
-			else:
-				aspect_container.ratio = preview_size.y / preview_size.x
+	var larger := maxf(preview_size.x, preview_size.y)
+	var smaller := minf(preview_size.x, preview_size.y)
+	aspect_container.ratio = larger / smaller if is_rotated or screen_is_landscape else smaller / larger
 
 
 func _get_preview_size(mat: ShaderMaterial) -> Vector2:
