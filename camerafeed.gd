@@ -22,6 +22,7 @@ var _cached_formats: Array = []
 var _last_feed_transform: Transform2D
 var _texture_initialized := false
 
+
 func _ready() -> void:
 	_validate_platform()
 	_adjust_ui()
@@ -200,6 +201,10 @@ func _start_camera_feed() -> void:
 	camera_feed.feed_is_active = true
 
 
+func _is_mobile_web() -> bool:
+	return OS.get_name() == "Web" and DisplayServer.is_touchscreen_available()
+
+
 func _update_scene_transform() -> void:
 	if not camera_feed or not camera_feed.feed_is_active:
 		return
@@ -219,19 +224,25 @@ func _update_scene_transform() -> void:
 	var is_front_camera := camera_feed.get_position() == CameraFeed.FeedPosition.FEED_FRONT
 	mirror_container.scale = Vector2(-1.0 if is_front_camera else 1.0, 1.0)
 
-	var feed_transform := camera_feed.feed_transform
-	var rotation_deg: float = abs(rad_to_deg(feed_transform.get_rotation()))
-	var is_rotated := (rotation_deg > 45 and rotation_deg < 135) or (rotation_deg > 225 and rotation_deg < 315)
-
-	# Apply rotation (Web: browser handles display, Others: use feed_transform)
-	rotation_container.rotation = 0.0 if OS.get_name() == "Web" else feed_transform.get_rotation()
-
-	# Adjust aspect ratio based on rotation and screen orientation
-	var display_size := DisplayServer.window_get_size()
-	var screen_is_landscape := display_size.x > display_size.y
-	var larger := maxf(preview_size.x, preview_size.y)
-	var smaller := minf(preview_size.x, preview_size.y)
-	aspect_container.ratio = larger / smaller if is_rotated or screen_is_landscape else smaller / larger
+	# Apply rotation (Web: browser handles, Others: use feed_transform)
+	if OS.get_name() == "Web":
+		rotation_container.rotation = 0
+		if _is_mobile_web():
+			# Mobile Web: some browsers rotate preview_size, others don't - detect and adapt
+			var display_size := DisplayServer.window_get_size()
+			var device_is_portrait := display_size.x < display_size.y
+			var preview_is_portrait := preview_size.x < preview_size.y
+			if device_is_portrait == preview_is_portrait:
+				aspect_container.ratio = preview_size.x / preview_size.y
+			else:
+				aspect_container.ratio = preview_size.y / preview_size.x
+		else:
+			# PC Web: camera is always landscape
+			aspect_container.ratio = preview_size.x / preview_size.y
+	else:
+		rotation_container.rotation = camera_feed.feed_transform.get_rotation()
+		# Aspect ratio is always camera's native ratio (STRETCH_COVER handles cropping)
+		aspect_container.ratio = preview_size.x / preview_size.y
 
 
 func _get_preview_size(mat: ShaderMaterial) -> Vector2:
