@@ -59,11 +59,6 @@ func _adjust_ui() -> void:
 		rotation_container.pivot_offset = rotation_container.size / 2
 		rotation_container.rotation = saved_rotation
 
-	# Reconnect resized signal (disconnect first to avoid duplicate connections)
-	if camera_display.resized.is_connected(_adjust_ui):
-		camera_display.resized.disconnect(_adjust_ui)
-	camera_display.resized.connect(_adjust_ui, ConnectFlags.CONNECT_ONE_SHOT)
-
 
 func _reload_camera_list() -> void:
 	camera_list.clear()
@@ -224,15 +219,43 @@ func _update_scene_transform() -> void:
 	var is_front_camera := camera_feed.get_position() == CameraFeed.FeedPosition.FEED_FRONT
 	mirror_container.scale = Vector2(-1.0 if is_front_camera else 1.0, 1.0)
 
-	# Apply rotation from feed_transform
-	rotation_container.rotation = camera_feed.feed_transform.get_rotation()
-
-	# Adjust aspect ratio based on device orientation
 	var display_size := DisplayServer.window_get_size()
-	if display_size.x > display_size.y:
-		aspect_container.ratio = preview_size.x / preview_size.y
+	var screen_is_landscape := display_size.x > display_size.y
+
+	if OS.get_name() == "Web":
+		var feed_transform := camera_feed.feed_transform
+
+		# Web: No rotation applied to container (browser handles display)
+		rotation_container.rotation = 0
+
+		# Determine orientation from feed_transform rotation
+		var rotation_deg: float = abs(rad_to_deg(feed_transform.get_rotation()))
+		# 90° or 270° means landscape
+		var is_landscape: bool = (rotation_deg > 45 and rotation_deg < 135) or (rotation_deg > 225 and rotation_deg < 315)
+
+		# AspectContainer ratio based on rotation
+		var larger := maxf(preview_size.x, preview_size.y)
+		var smaller := minf(preview_size.x, preview_size.y)
+		if is_landscape:  # 90° or 270°
+			aspect_container.ratio = larger / smaller
+		else:  # 0° or 180° (portrait)
+			aspect_container.ratio = smaller / larger
 	else:
-		aspect_container.ratio = preview_size.y / preview_size.x
+		# Other platforms: Use feed_transform for rotation
+		var feed_transform := camera_feed.feed_transform
+		rotation_container.rotation = feed_transform.get_rotation()
+
+		# Adjust aspect ratio based on rotation
+		var rotation_deg: float = abs(rad_to_deg(feed_transform.get_rotation()))
+		# 90° or 270° means the camera is rotated
+		var is_rotated: bool = (rotation_deg > 45 and rotation_deg < 135) or (rotation_deg > 225 and rotation_deg < 315)
+		if is_rotated:
+			aspect_container.ratio = preview_size.x / preview_size.y
+		else:
+			if screen_is_landscape:
+				aspect_container.ratio = preview_size.x / preview_size.y
+			else:
+				aspect_container.ratio = preview_size.y / preview_size.x
 
 
 func _get_preview_size(mat: ShaderMaterial) -> Vector2:
@@ -344,6 +367,7 @@ func _notification(what: int) -> void:
 	match what:
 		NOTIFICATION_RESIZED, NOTIFICATION_WM_SIZE_CHANGED:
 			_adjust_ui()
+			_update_scene_transform()
 
 
 func _exit_tree() -> void:
