@@ -2,6 +2,7 @@ extends Control
 
 const CAMERA_DEACTIVATION_DELAY := 0.1
 const DISPLAY_PADDING := 40.0
+const BASE_VIEWPORT_WIDTH := 720.0
 
 enum ShaderMode { RGB = 0, YCBCR_SEP = 1, YCBCR = 2 }
 
@@ -42,7 +43,17 @@ func _validate_platform() -> void:
 		push_warning("see https://github.com/godotengine/godot/pull/106777")
 
 
+func _is_mobile() -> bool:
+	var os_name := OS.get_name()
+	if os_name in ["Android", "iOS"]:
+		return true
+	if os_name == "Web" and DisplayServer.is_touchscreen_available():
+		return true
+	return false
+
+
 func _adjust_ui() -> void:
+	_adjust_content_scale()
 	camera_display.size = camera_display.get_parent_area_size() - Vector2.ONE * DISPLAY_PADDING
 
 	# Set pivot_offset for containers (must reset transform, set pivot, then restore)
@@ -58,6 +69,16 @@ func _adjust_ui() -> void:
 		rotation_container.rotation = 0.0
 		rotation_container.pivot_offset = rotation_container.size / 2
 		rotation_container.rotation = saved_rotation
+
+
+func _adjust_content_scale() -> void:
+	if not _is_mobile():
+		return
+	var screen_size := DisplayServer.screen_get_size()
+	var shorter_edge := minf(screen_size.x, screen_size.y)
+	var scale_factor := shorter_edge / BASE_VIEWPORT_WIDTH
+	scale_factor = clampf(scale_factor, 1.0, 3.0)
+	get_tree().root.content_scale_factor = scale_factor
 
 
 func _reload_camera_list() -> void:
