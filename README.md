@@ -12,25 +12,27 @@
 
 ## Known limits
 
-Pull requests have been proposed for Windows, iOS and Web.
+Pull requests have been proposed for Windows, Web and iOS.
 
 - ~~https://github.com/godotengine/godot/pull/105476~~
 - https://github.com/godotengine/godot/pull/108538
-- https://github.com/godotengine/godot/pull/106305
 - https://github.com/godotengine/godot/pull/106784
+- https://github.com/godot-sdk-integrations/godot-ios-plugins/pull/89
 
 An alternative implementation using PipeWire for Linux.
 
 - https://github.com/godotengine/godot/pull/109500
 
-macOS and iOS are incomplete due to bugs.
+macOS is incomplete due to bugs.
 
-- https://github.com/godotengine/godot/pull/104809
 - https://github.com/godotengine/godot/pull/106777
+- https://github.com/godotengine/godot/pull/114400
 
-Other bugs
+Android is incomplete due to bugs.
 
-- https://github.com/godotengine/godot/pull/108165
-- https://github.com/godotengine/godot/pull/109594
 - https://github.com/godotengine/godot/pull/110720
-- https://github.com/godotengine/godot/pull/111206
+
+Linux is incomplete due to bugs.
+
+- https://github.com/godotengine/godot/pull/113358
+- https://github.com/godotengine/godot/pull/113359

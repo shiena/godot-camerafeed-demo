@@ -12,11 +12,15 @@ config_version=5
 
 permissions=["CAMERA"]
 
+[animation]
+
+compatibility/default_parent_skeleton_in_mesh_instance_3d=true
+
 [application]
 
 config/name="godot-camerafeed-demo"
 run/main_scene="uid://oiv4p8ii3am4"
-config/features=PackedStringArray("4.5")
+config/features=PackedStringArray("4.6")
 config/icon="res://icon.svg"
 config/run/main_scene="res://scenes/Main.tscn"
 
