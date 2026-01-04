@@ -23,9 +23,11 @@ var _initialized := false
 var _cached_formats: Array = []
 var _last_feed_transform: Transform2D
 var _texture_initialized := false
+var _is_mobile := false
 
 
 func _ready() -> void:
+	_is_mobile = _check_is_mobile()
 	_validate_platform()
 	_adjust_ui()
 	_setup_mirror_list()
@@ -54,7 +56,7 @@ func _validate_platform() -> void:
 		push_warning("see https://github.com/godotengine/godot/pull/106777")
 
 
-func _is_mobile() -> bool:
+func _check_is_mobile() -> bool:
 	var os_name := OS.get_name()
 	if os_name in ["Android", "iOS"]:
 		return true
@@ -83,7 +85,7 @@ func _adjust_ui() -> void:
 
 
 func _adjust_content_scale() -> void:
-	if not _is_mobile():
+	if not _is_mobile:
 		return
 	var screen_size := DisplayServer.screen_get_size()
 	var shorter_edge := minf(screen_size.x, screen_size.y)
