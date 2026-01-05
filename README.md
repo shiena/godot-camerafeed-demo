@@ -26,7 +26,6 @@ An alternative implementation using PipeWire for Linux.
 macOS is incomplete due to bugs.
 
 - https://github.com/godotengine/godot/pull/106777
-- https://github.com/godotengine/godot/pull/114400
 
 Android is incomplete due to bugs.
 
