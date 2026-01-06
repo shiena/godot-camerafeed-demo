@@ -9,25 +9,52 @@ uniform sampler2D cbcr_texture;
 uniform sampler2D ycbcr_texture;
 // mode: 0 -> RGB, mode: 1 -> YCbCr_sep, mode: 2 -> YCbCr
 uniform int mode : hint_range(0, 2);
+// color_range: 0 -> Full Range (0-255), 1 -> Video Range (16-235/240)
+uniform int color_range : hint_range(0, 1) = 0;
+
 vec2 clamp_uv(vec2 uv) {
 	return clamp(uv, vec2(0.0), vec2(1.0));
 }
 
-// YCbCr to RGB conversion (BT.601 standard)
+// Convert YCbCr values based on color range
+// Full Range: Y=0-255, CbCr=0-255 (normalized 0.0-1.0)
+// Video Range: Y=16-235, CbCr=16-240 (needs scaling)
+vec3 normalize_ycbcr(float y, vec2 cbcr) {
+	vec3 result;
+	if (color_range == 1) {
+		// Video Range (Limited Range) - ITU-R BT.601/BT.709
+		// Y: (Y - 16) / 219, CbCr: (CbCr - 16) / 224 - 0.5
+		result.r = (y - 16.0 / 255.0) * (255.0 / 219.0);
+		result.gb = (cbcr - 16.0 / 255.0) * (255.0 / 224.0) - vec2(0.5);
+	} else {
+		// Full Range - direct mapping
+		result.r = y;
+		result.gb = cbcr - vec2(0.5);
+	}
+	return result;
+}
+
+// YCbCr to RGB conversion
 void fragment() {
 	vec3 color;
 	vec2 base_uv = clamp_uv(UV);
 
 	if (mode == 1) {
-		color.r = texture(y_texture, base_uv).r;
-		color.gb = texture(cbcr_texture, base_uv).rg - vec2(0.5, 0.5);
+		// YCbCr separate planes (Y + CbCr)
+		float y = texture(y_texture, base_uv).r;
+		vec2 cbcr = texture(cbcr_texture, base_uv).rg;
+		color = normalize_ycbcr(y, cbcr);
 	} else if (mode == 2) {
+		// YCbCr interleaved (YUYV/NV12 style)
 		vec2 parity = floor(mod(UV / TEXTURE_PIXEL_SIZE, 2));
 		vec2 UV_u = UV - parity * vec2(1.0, 0.0) * TEXTURE_PIXEL_SIZE;
 		vec2 UV_v = UV + (vec2(1.0, 0.0) - parity) * vec2(1.0, 0.0) * TEXTURE_PIXEL_SIZE;
-		color.r = texture(ycbcr_texture, base_uv).r;
-		color.g = texture(ycbcr_texture, clamp_uv(UV_u)).g - 0.5;
-		color.b = texture(ycbcr_texture, clamp_uv(UV_v)).g - 0.5;
+		float y = texture(ycbcr_texture, base_uv).r;
+		vec2 cbcr = vec2(
+			texture(ycbcr_texture, clamp_uv(UV_u)).g,
+			texture(ycbcr_texture, clamp_uv(UV_v)).g
+		);
+		color = normalize_ycbcr(y, cbcr);
 	}
 
 	// YCbCr -> SRGB conversion

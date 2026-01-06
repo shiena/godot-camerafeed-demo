@@ -18,6 +18,7 @@ shader_parameter/y_texture = SubResource("CameraTexture_xep8u")
 shader_parameter/cbcr_texture = SubResource("CameraTexture_7c2aw")
 shader_parameter/ycbcr_texture = SubResource("CameraTexture_rvslj")
 shader_parameter/mode = 0
+shader_parameter/color_range = 0
 
 [sub_resource type="StyleBoxFlat" id="StyleBoxFlat_1"]
 bg_color = Color(0.15, 0.15, 0.15, 0.95)

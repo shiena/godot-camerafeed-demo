@@ -6,6 +6,7 @@ const BASE_VIEWPORT_WIDTH := 720.0
 
 enum ShaderMode { RGB = 0, YCBCR_SEP = 1, YCBCR = 2 }
 enum MirrorMode { AUTO = 0, MIRROR = 1, NORMAL = 2 }
+enum ColorRange { FULL = 0, VIDEO = 1 }
 
 @onready var camera_display := $CameraDisplay
 @onready var mirror_container := $CameraDisplay/MirrorContainer
@@ -317,6 +318,39 @@ func _get_fps(format: Dictionary) -> float:
 	return float(numerator) / float(denominator)
 
 
+# Detect YCbCr color range from format dictionary and platform
+# Full Range: Y=0-255, CbCr=0-255
+# Video Range: Y=16-235, CbCr=16-240
+func _get_color_range(format: Dictionary) -> int:
+	# Check explicit color_range key first (iOS provides this)
+	var color_range_str: String = format.get("color_range", "")
+	if color_range_str == "full":
+		return ColorRange.FULL
+	if color_range_str == "video":
+		return ColorRange.VIDEO
+
+	# Platform-specific defaults
+	var os_name := OS.get_name()
+	match os_name:
+		"Android":
+			# Android YUV_420_888 is typically Video Range
+			return ColorRange.VIDEO
+		"Windows":
+			# Windows NV12/YUY2 are typically Video Range
+			return ColorRange.VIDEO
+		"Linux":
+			# Linux V4L2 formats are typically Full Range
+			return ColorRange.FULL
+		"macOS":
+			# macOS hardcodes Full Range in implementation
+			return ColorRange.FULL
+		"iOS":
+			# iOS without explicit range indicator - default to Full
+			return ColorRange.FULL
+		_:
+			return ColorRange.FULL
+
+
 func _on_frame_changed() -> void:
 	if not camera_feed or not camera_feed.feed_is_active:
 		return
@@ -369,6 +403,12 @@ func _setup_textures() -> void:
 		_:
 			print("Skip formats that are not supported.")
 			return
+
+	# Set color range based on format and platform
+	var selected_index: int = format_list.selected
+	if selected_index >= 0 and selected_index < _cached_formats.size():
+		var color_range := _get_color_range(_cached_formats[selected_index])
+		mat.set_shader_parameter(&"color_range", color_range)
 
 	if preview_size.round().x <= 0 or preview_size.round().y <= 0:
 		return
