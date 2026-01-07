@@ -18,6 +18,7 @@ enum ColorRange { FULL = 0, VIDEO = 1 }
 @onready var mirror_list := $DrawerContainer/Drawer/DrawerContent/VBoxContainer/MirrorList
 @onready var start_or_stop_button := $DrawerContainer/Drawer/DrawerContent/VBoxContainer/ButtonContainer/StartOrStopButton
 @onready var reload_button := $DrawerContainer/Drawer/DrawerContent/VBoxContainer/ButtonContainer/ReloadButton
+@onready var permission_panel := $PermissionPanel
 
 var camera_feed: CameraFeed
 var _initialized := false
@@ -32,6 +33,14 @@ func _ready() -> void:
 	_validate_platform()
 	_adjust_ui()
 	_setup_mirror_list()
+
+	# Check camera permission on Android
+	if OS.get_name() == "Android":
+		var granted := await _request_camera_permission()
+		if not granted:
+			permission_panel.visible = true
+			return
+
 	_reload_camera_list()
 	_initialized = true
 
@@ -98,13 +107,6 @@ func _adjust_content_scale() -> void:
 func _reload_camera_list() -> void:
 	camera_list.clear()
 	format_list.clear()
-
-	# Request camera permission on Android
-	if OS.get_name() == "Android":
-		if not "CAMERA" in OS.get_granted_permissions():
-			if not OS.request_permission("CAMERA"):
-				print("CAMERA permission not granted")
-				return
 
 	# Stop monitoring if already active
 	if CameraServer.is_monitoring_feeds:
@@ -444,6 +446,32 @@ func _on_reload_button_pressed() -> void:
 
 func _on_mirror_list_item_selected(_index: int) -> void:
 	_update_scene_transform()
+
+
+func _request_camera_permission() -> bool:
+	const CAMERA_PERMISSION := "android.permission.CAMERA"
+
+	if CAMERA_PERMISSION in OS.get_granted_permissions():
+		return true
+
+	var already_granted := OS.request_permission("CAMERA")
+	if already_granted:
+		return true
+
+	while true:
+		var result = await get_tree().on_request_permissions_result
+		# result = [permission_name: String, granted: bool]
+		if result[0] == CAMERA_PERMISSION:
+			return result[1]
+
+	return false  # Unreachable
+
+
+func _on_permission_button_pressed() -> void:
+	if await _request_camera_permission():
+		permission_panel.visible = false
+		_reload_camera_list()
+		_initialized = true
 
 
 func _notification(what: int) -> void:

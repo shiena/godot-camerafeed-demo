@@ -1,4 +1,4 @@
-[gd_scene load_steps=11 format=3 uid="uid://oiv4p8ii3am4"]
+[gd_scene load_steps=13 format=3 uid="uid://oiv4p8ii3am4"]
 
 [ext_resource type="Script" uid="uid://dxaoavn781kxe" path="res://camerafeed.gd" id="1_fuswq"]
 [ext_resource type="Shader" uid="uid://dhjh7s6i7jnlp" path="res://ycbcr_to_rgb.gdshader" id="2_0uyi5"]
@@ -41,6 +41,20 @@ corner_radius_top_left = 10
 corner_radius_top_right = 10
 corner_radius_bottom_right = 10
 corner_radius_bottom_left = 10
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_permission_normal"]
+bg_color = Color(0.2, 0.5, 0.8, 1)
+corner_radius_top_left = 15
+corner_radius_top_right = 15
+corner_radius_bottom_right = 15
+corner_radius_bottom_left = 15
+
+[sub_resource type="StyleBoxFlat" id="StyleBoxFlat_permission_hover"]
+bg_color = Color(0.3, 0.6, 0.9, 1)
+corner_radius_top_left = 15
+corner_radius_top_right = 15
+corner_radius_bottom_right = 15
+corner_radius_bottom_left = 15
 
 [node name="CameraApp" type="Control" unique_id=1657481471]
 layout_mode = 3
@@ -193,8 +207,45 @@ text = "Mirror"
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 
+[node name="PermissionPanel" type="ColorRect" parent="."]
+visible = false
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.85)
+
+[node name="CenterContainer" type="CenterContainer" parent="PermissionPanel"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+
+[node name="VBoxContainer" type="VBoxContainer" parent="PermissionPanel/CenterContainer"]
+layout_mode = 2
+theme_override_constants/separation = 30
+
+[node name="Label" type="Label" parent="PermissionPanel/CenterContainer/VBoxContainer"]
+layout_mode = 2
+text = "Camera permission is required"
+horizontal_alignment = 1
+
+[node name="PermissionButton" type="Button" parent="PermissionPanel/CenterContainer/VBoxContainer"]
+custom_minimum_size = Vector2(200, 60)
+layout_mode = 2
+size_flags_horizontal = 4
+theme_override_styles/normal = SubResource("StyleBoxFlat_permission_normal")
+theme_override_styles/pressed = SubResource("StyleBoxFlat_permission_normal")
+theme_override_styles/hover = SubResource("StyleBoxFlat_permission_hover")
+text = "Grant Permission"
+
 [connection signal="pressed" from="DrawerContainer/Drawer/DrawerContent/VBoxContainer/ButtonContainer/StartOrStopButton" to="." method="_on_start_or_stop_button_pressed"]
 [connection signal="pressed" from="DrawerContainer/Drawer/DrawerContent/VBoxContainer/ButtonContainer/ReloadButton" to="." method="_on_reload_button_pressed"]
 [connection signal="item_selected" from="DrawerContainer/Drawer/DrawerContent/VBoxContainer/CameraList" to="." method="_on_camera_list_item_selected"]
 [connection signal="item_selected" from="DrawerContainer/Drawer/DrawerContent/VBoxContainer/FormatList" to="." method="_on_format_list_item_selected"]
 [connection signal="item_selected" from="DrawerContainer/Drawer/DrawerContent/VBoxContainer/MirrorList" to="." method="_on_mirror_list_item_selected"]
+[connection signal="pressed" from="PermissionPanel/CenterContainer/VBoxContainer/PermissionButton" to="." method="_on_permission_button_pressed"]
