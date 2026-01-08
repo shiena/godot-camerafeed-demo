@@ -27,10 +27,6 @@ macOS is incomplete due to bugs.
 
 - https://github.com/godotengine/godot/pull/106777
 
-Android is incomplete due to bugs.
-
-- https://github.com/godotengine/godot/pull/110720
-
 Linux is incomplete due to bugs.
 
 - https://github.com/godotengine/godot/pull/113358
