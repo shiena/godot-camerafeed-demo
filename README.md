@@ -32,7 +32,7 @@ Linux is incomplete due to bugs.
 - https://github.com/godotengine/godot/pull/113358
 - https://github.com/godotengine/godot/pull/113359
 
-Other bugs.
+CameraFeed is incomplete due to bugs.
 
 - https://github.com/godotengine/godot/pull/100923
 - https://github.com/godotengine/godot/pull/114731
