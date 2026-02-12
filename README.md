@@ -19,6 +19,10 @@ Pull requests have been proposed for Windows, Web and iOS.
 - https://github.com/godotengine/godot/pull/106784
 - https://github.com/godot-sdk-integrations/godot-ios-plugins/pull/89
 
+An alternative implementation using PipeWire for iOS.
+
+- https://github.com/godotengine/godot/pull/115502
+
 An alternative implementation using PipeWire for Linux.
 
 - https://github.com/godotengine/godot/pull/109500
@@ -31,8 +35,3 @@ Linux is incomplete due to bugs.
 
 - https://github.com/godotengine/godot/pull/113358
 - https://github.com/godotengine/godot/pull/113359
-
-CameraFeed is incomplete due to bugs.
-
-- https://github.com/godotengine/godot/pull/100923
-- https://github.com/godotengine/godot/pull/114731
