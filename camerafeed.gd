@@ -361,6 +361,7 @@ func _on_frame_changed() -> void:
 
 	if not _texture_initialized:
 		_setup_textures()
+		_update_scene_transform()
 
 	# Update scene transform only when feed_transform changes
 	var current_transform := camera_feed.feed_transform
