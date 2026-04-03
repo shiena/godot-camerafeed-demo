@@ -174,13 +174,12 @@ func _update_format_list() -> void:
 
 	_cached_formats = camera_feed.get_formats()
 	if _cached_formats.is_empty():
-		var os_name := OS.get_name()
-		if os_name in ["macOS", "iOS"]:
-			push_warning("%s is not supported CameraFeed formats" % os_name)
-			push_warning("see https://github.com/godotengine/godot/pull/106777")
-		format_list.add_item("No formats available")
+		_cached_formats = [{}]
+		format_list.add_item("Default")
 		format_list.disabled = true
-		start_or_stop_button.disabled = true
+		start_or_stop_button.disabled = false
+		await get_tree().process_frame
+		_start_camera_feed()
 		return
 
 	format_list.disabled = false
@@ -206,13 +205,6 @@ func _update_format_list() -> void:
 func _on_format_list_item_selected(index: int) -> void:
 	if not camera_feed:
 		return
-
-	var os_name := OS.get_name()
-
-	# Validate format index (skip for macOS/iOS due to format limitations)
-	if not os_name in ["macOS", "iOS"]:
-		if index < 0 or index >= _cached_formats.size():
-			return
 
 	# Deactivate current feed and wait for hardware to fully deactivate
 	if camera_feed.feed_is_active:
