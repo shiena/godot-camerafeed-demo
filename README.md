@@ -1,5 +1,9 @@
 # godot-camerafeed-demo
 
+## Web demo
+
+https://shiena.github.io/godot-camerafeed-demo/
+
 ## Requirement
 
 [Godot Engine](https://godotengine.org/)
@@ -9,25 +13,22 @@
 - macOS: Godot Engine 4.0 or later
 - Linux: Godot Engine 4.4 or later
 - Android: Godot Engine 4.5 or later
+- iOS: Godot Engine 4.7 dev 4 or later
 
 ## Known limits
 
-Pull requests have been proposed for Windows, Web and iOS.
+Pull requests have been proposed for Windows, Web and iOS(4.7 dev 3 or earlier).
 
 - ~~https://github.com/godotengine/godot/pull/105476~~
 - https://github.com/godotengine/godot/pull/108538
 - https://github.com/godotengine/godot/pull/106784
 - https://github.com/godot-sdk-integrations/godot-ios-plugins/pull/89
 
-An alternative implementation using PipeWire for iOS.
-
-- https://github.com/godotengine/godot/pull/115502
-
 An alternative implementation using PipeWire for Linux.
 
 - https://github.com/godotengine/godot/pull/109500
 
-macOS is incomplete due to bugs.
+macOS/iOS is incomplete due to bugs.
 
 - https://github.com/godotengine/godot/pull/106777
 
@@ -35,3 +36,4 @@ Linux is incomplete due to bugs.
 
 - https://github.com/godotengine/godot/pull/113358
 - https://github.com/godotengine/godot/pull/113359
+- https://github.com/godotengine/godot/pull/119852
