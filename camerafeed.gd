@@ -81,7 +81,6 @@ func _adjust_ui() -> void:
 
 	# Set pivot_offset for containers (must reset transform, set pivot, then restore)
 	var saved_mirror_scale: Vector2 = mirror_container.scale if mirror_container else Vector2.ONE
-	var saved_rotation: float = rotation_container.rotation if rotation_container else 0.0
 
 	if mirror_container:
 		mirror_container.scale = Vector2.ONE
@@ -89,9 +88,23 @@ func _adjust_ui() -> void:
 		mirror_container.scale = saved_mirror_scale
 
 	if rotation_container:
-		rotation_container.rotation = 0.0
-		rotation_container.pivot_offset = rotation_container.size / 2
-		rotation_container.rotation = saved_rotation
+		_update_rotation_container_layout(rotation_container.rotation)
+
+
+func _update_rotation_container_layout(rotation: float) -> void:
+	if not mirror_container or not rotation_container:
+		return
+
+	var display_size: Vector2 = mirror_container.size
+	var is_sideways: bool = absf(sin(rotation)) > absf(cos(rotation))
+	var layout_size: Vector2 = Vector2(display_size.y, display_size.x) if is_sideways else display_size
+
+	rotation_container.rotation = 0.0
+	rotation_container.set_anchors_preset(Control.PRESET_TOP_LEFT, false)
+	rotation_container.position = (display_size - layout_size) / 2.0
+	rotation_container.size = layout_size
+	rotation_container.pivot_offset = layout_size / 2.0
+	rotation_container.rotation = rotation
 
 
 func _adjust_content_scale() -> void:
@@ -287,7 +300,7 @@ func _update_scene_transform() -> void:
 
 	# Apply rotation (Web: browser handles, Others: use feed_transform)
 	if OS.get_name() == "Web":
-		rotation_container.rotation = 0
+		_update_rotation_container_layout(0.0)
 		if _is_mobile_web():
 			# Mobile Web: some browsers rotate preview_size, others don't - detect and adapt
 			var display_size := DisplayServer.window_get_size()
@@ -301,7 +314,8 @@ func _update_scene_transform() -> void:
 			# PC Web: camera is always landscape
 			aspect_container.ratio = preview_size.x / preview_size.y
 	else:
-		rotation_container.rotation = camera_feed.feed_transform.get_rotation()
+		var feed_rotation := camera_feed.feed_transform.get_rotation()
+		_update_rotation_container_layout(feed_rotation)
 		# Aspect ratio is always camera's native ratio (STRETCH_COVER handles cropping)
 		aspect_container.ratio = preview_size.x / preview_size.y
 
