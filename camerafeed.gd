@@ -160,8 +160,12 @@ func _on_camera_list_item_selected(index: int) -> void:
 	if camera_feed and camera_feed.feed_is_active:
 		camera_feed.feed_is_active = false
 		await get_tree().create_timer(CAMERA_DEACTIVATION_DELAY).timeout
+	if camera_feed and camera_feed.format_changed.is_connected(_on_camera_format_changed):
+		camera_feed.format_changed.disconnect(_on_camera_format_changed)
 
 	camera_feed = camera_feeds[index]
+	if not camera_feed.format_changed.is_connected(_on_camera_format_changed):
+		camera_feed.format_changed.connect(_on_camera_format_changed, ConnectFlags.CONNECT_DEFERRED)
 	_cached_formats = []
 	await _update_format_list()
 
@@ -185,21 +189,41 @@ func _update_format_list() -> void:
 	format_list.disabled = false
 	start_or_stop_button.disabled = false
 	for format: Dictionary in _cached_formats:
-		var width: int = format.get("width", 0)
-		var height: int = format.get("height", 0)
-		var format_name: String = format.get("format", "Unknown")
-		var item := "%s - %dx%d" % [format_name, width, height]
-
-		var fps := _get_fps(format)
-		if fps > 0:
-			if is_equal_approx(fps, roundf(fps)):
-				item += " @ %dfps" % int(fps)
-			else:
-				item += " @ %.2ffps" % fps
-		format_list.add_item(item)
+		format_list.add_item(_get_format_item_text(format))
 
 	format_list.selected = 0
 	await _on_format_list_item_selected(0)
+
+
+func _get_format_item_text(format: Dictionary) -> String:
+	var width: int = format.get("width", 0)
+	var height: int = format.get("height", 0)
+	var format_name: String = format.get("format", "Unknown")
+	var item := "%s - %dx%d" % [format_name, width, height]
+
+	var fps := _get_fps(format)
+	if fps > 0:
+		if is_equal_approx(fps, roundf(fps)):
+			item += " @ %dfps" % int(fps)
+		else:
+			item += " @ %.2ffps" % fps
+	return item
+
+
+func _refresh_format_list_labels() -> void:
+	var selected_index: int = format_list.selected
+	_cached_formats = camera_feed.get_formats() if camera_feed else []
+	var item_count: int = min(format_list.item_count, _cached_formats.size())
+	for i in item_count:
+		format_list.set_item_text(i, _get_format_item_text(_cached_formats[i]))
+	if selected_index >= 0 and selected_index < format_list.item_count:
+		format_list.selected = selected_index
+
+
+func _on_camera_format_changed() -> void:
+	if not camera_feed:
+		return
+	_refresh_format_list_labels()
 
 
 func _on_format_list_item_selected(index: int) -> void:
@@ -477,5 +501,7 @@ func _notification(what: int) -> void:
 
 
 func _exit_tree() -> void:
+	if camera_feed and camera_feed.format_changed.is_connected(_on_camera_format_changed):
+		camera_feed.format_changed.disconnect(_on_camera_format_changed)
 	if camera_feed and camera_feed.feed_is_active:
 		camera_feed.feed_is_active = false
