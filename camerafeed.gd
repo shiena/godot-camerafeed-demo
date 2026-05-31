@@ -98,7 +98,6 @@ func _update_rotation_container_layout(rotation: float) -> void:
 	var display_size: Vector2 = mirror_container.size
 	var is_sideways: bool = absf(sin(rotation)) > absf(cos(rotation))
 	var layout_size: Vector2 = Vector2(display_size.y, display_size.x) if is_sideways else display_size
-
 	rotation_container.rotation = 0.0
 	rotation_container.set_anchors_preset(Control.PRESET_TOP_LEFT, false)
 	rotation_container.position = (display_size - layout_size) / 2.0
@@ -285,6 +284,9 @@ func _update_scene_transform() -> void:
 	var preview_size := _get_preview_size(mat)
 	if preview_size.round().x <= 0 or preview_size.round().y <= 0:
 		return
+	var layout_size := _get_selected_format_size()
+	if layout_size.round().x <= 0 or layout_size.round().y <= 0:
+		layout_size = preview_size
 
 	# Apply mirroring based on mirror mode
 	var should_mirror: bool
@@ -305,19 +307,18 @@ func _update_scene_transform() -> void:
 			# Mobile Web: some browsers rotate preview_size, others don't - detect and adapt
 			var display_size := DisplayServer.window_get_size()
 			var device_is_portrait := display_size.x < display_size.y
-			var preview_is_portrait := preview_size.x < preview_size.y
+			var preview_is_portrait := layout_size.x < layout_size.y
 			if device_is_portrait == preview_is_portrait:
-				aspect_container.ratio = preview_size.x / preview_size.y
+				aspect_container.ratio = layout_size.x / layout_size.y
 			else:
-				aspect_container.ratio = preview_size.y / preview_size.x
+				aspect_container.ratio = layout_size.y / layout_size.x
 		else:
 			# PC Web: camera is always landscape
-			aspect_container.ratio = preview_size.x / preview_size.y
+			aspect_container.ratio = layout_size.x / layout_size.y
 	else:
 		var feed_rotation := camera_feed.feed_transform.get_rotation()
 		_update_rotation_container_layout(feed_rotation)
-		# Aspect ratio is always camera's native ratio (STRETCH_COVER handles cropping)
-		aspect_container.ratio = preview_size.x / preview_size.y
+		aspect_container.ratio = layout_size.x / layout_size.y
 
 
 func _get_preview_size(mat: ShaderMaterial) -> Vector2:
@@ -336,6 +337,19 @@ func _get_preview_size(mat: ShaderMaterial) -> Vector2:
 			if texture:
 				return texture.get_size()
 	return Vector2.ZERO
+
+
+func _get_selected_format_size() -> Vector2:
+	var selected_index: int = format_list.selected
+	if selected_index < 0 or selected_index >= _cached_formats.size():
+		return Vector2.ZERO
+
+	var format: Dictionary = _cached_formats[selected_index]
+	var width: int = format.get("width", 0)
+	var height: int = format.get("height", 0)
+	if width <= 0 or height <= 0:
+		return Vector2.ZERO
+	return Vector2(width, height)
 
 
 func _get_fps(format: Dictionary) -> float:
@@ -413,26 +427,26 @@ func _setup_textures() -> void:
 	ycbcr_texture.which_feed = CameraServer.FeedImage.FEED_YCBCR_IMAGE
 
 	var datatype := camera_feed.get_datatype() as CameraFeed.FeedDataType
-	var preview_size := Vector2.ZERO
+	var texture_size := Vector2.ZERO
 
 	match datatype:
 		CameraFeed.FeedDataType.FEED_RGB:
 			rgb_texture.camera_feed_id = camera_feed.get_id()
 			mat.set_shader_parameter(&"rgb_texture", rgb_texture)
 			mat.set_shader_parameter(&"mode", ShaderMode.RGB)
-			preview_size = rgb_texture.get_size()
+			texture_size = rgb_texture.get_size()
 		CameraFeed.FeedDataType.FEED_YCBCR_SEP:
 			y_texture.camera_feed_id = camera_feed.get_id()
 			cbcr_texture.camera_feed_id = camera_feed.get_id()
 			mat.set_shader_parameter(&"y_texture", y_texture)
 			mat.set_shader_parameter(&"cbcr_texture", cbcr_texture)
 			mat.set_shader_parameter(&"mode", ShaderMode.YCBCR_SEP)
-			preview_size = y_texture.get_size()
+			texture_size = y_texture.get_size()
 		CameraFeed.FeedDataType.FEED_YCBCR:
 			ycbcr_texture.camera_feed_id = camera_feed.get_id()
 			mat.set_shader_parameter(&"ycbcr_texture", ycbcr_texture)
 			mat.set_shader_parameter(&"mode", ShaderMode.YCBCR)
-			preview_size = ycbcr_texture.get_size()
+			texture_size = ycbcr_texture.get_size()
 		_:
 			print("Skip formats that are not supported.")
 			return
@@ -443,6 +457,9 @@ func _setup_textures() -> void:
 		var color_range := _get_color_range(_cached_formats[selected_index])
 		mat.set_shader_parameter(&"color_range", color_range)
 
+	var preview_size := _get_selected_format_size()
+	if preview_size.round().x <= 0 or preview_size.round().y <= 0:
+		preview_size = texture_size
 	if preview_size.round().x <= 0 or preview_size.round().y <= 0:
 		return
 
