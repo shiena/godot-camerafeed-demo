@@ -34,7 +34,6 @@ func _ready() -> void:
 	_adjust_ui()
 	_setup_mirror_list()
 
-	# Check camera permission on Android
 	if OS.get_name() == "Android":
 		var granted := await _request_camera_permission()
 		if not granted:
@@ -79,7 +78,6 @@ func _adjust_ui() -> void:
 	_adjust_content_scale()
 	camera_display.size = camera_display.get_parent_area_size() - Vector2.ONE * DISPLAY_PADDING
 
-	# Set pivot_offset for containers (must reset transform, set pivot, then restore)
 	var saved_mirror_scale: Vector2 = mirror_container.scale if mirror_container else Vector2.ONE
 
 	if mirror_container:
@@ -120,12 +118,10 @@ func _reload_camera_list() -> void:
 	camera_list.clear()
 	format_list.clear()
 
-	# Stop monitoring if already active
 	if CameraServer.is_monitoring_feeds:
 		CameraServer.monitoring_feeds = false
 		await get_tree().process_frame
 
-	# DEFERRED ensures callback runs on main thread
 	if not CameraServer.camera_feeds_updated.is_connected(_on_camera_feeds_updated):
 		CameraServer.camera_feeds_updated.connect(_on_camera_feeds_updated, ConnectFlags.CONNECT_DEFERRED)
 
@@ -135,7 +131,6 @@ func _reload_camera_list() -> void:
 func _on_camera_feeds_updated() -> void:
 	var feeds := CameraServer.feeds()
 
-	# Skip if feed list hasn't changed
 	if feeds.size() == camera_list.item_count:
 		var all_match := true
 		for i in feeds.size():
@@ -168,7 +163,6 @@ func _on_camera_list_item_selected(index: int) -> void:
 	if index < 0 or index >= camera_feeds.size():
 		return
 
-	# Stop previous camera and wait for hardware to fully deactivate
 	if camera_feed and camera_feed.feed_is_active:
 		camera_feed.feed_is_active = false
 		await get_tree().create_timer(CAMERA_DEACTIVATION_DELAY).timeout
@@ -222,27 +216,38 @@ func _get_format_item_text(format: Dictionary) -> String:
 	return item
 
 
-func _refresh_format_list_labels() -> void:
-	var selected_index: int = format_list.selected
-	_cached_formats = camera_feed.get_formats() if camera_feed else []
-	var item_count: int = min(format_list.item_count, _cached_formats.size())
-	for i in item_count:
-		format_list.set_item_text(i, _get_format_item_text(_cached_formats[i]))
-	if selected_index >= 0 and selected_index < format_list.item_count:
-		format_list.selected = selected_index
+func _refresh_format_list() -> void:
+	if not camera_feed:
+		return
+
+	var previous_index: int = format_list.selected
+	var updated_formats := camera_feed.get_formats()
+	if updated_formats.is_empty():
+		_cached_formats = [{}]
+		format_list.clear()
+		format_list.add_item("Default")
+		format_list.disabled = true
+		return
+
+	_cached_formats = updated_formats
+	format_list.clear()
+	for format: Dictionary in _cached_formats:
+		format_list.add_item(_get_format_item_text(format))
+	format_list.disabled = false
+	format_list.select(clampi(previous_index, 0, updated_formats.size() - 1))
+	_texture_initialized = false
 
 
 func _on_camera_format_changed() -> void:
 	if not camera_feed:
 		return
-	_refresh_format_list_labels()
+	_refresh_format_list()
 
 
 func _on_format_list_item_selected(index: int) -> void:
 	if not camera_feed:
 		return
 
-	# Deactivate current feed and wait for hardware to fully deactivate
 	if camera_feed.feed_is_active:
 		camera_feed.feed_is_active = false
 		await get_tree().create_timer(CAMERA_DEACTIVATION_DELAY).timeout
@@ -280,7 +285,6 @@ func _update_scene_transform() -> void:
 	if not mat:
 		return
 
-	# Get texture size to calculate aspect ratio
 	var preview_size := _get_preview_size(mat)
 	if preview_size.round().x <= 0 or preview_size.round().y <= 0:
 		return
@@ -288,7 +292,6 @@ func _update_scene_transform() -> void:
 	if layout_size.round().x <= 0 or layout_size.round().y <= 0:
 		layout_size = preview_size
 
-	# Apply mirroring based on mirror mode
 	var should_mirror: bool
 	match mirror_list.get_selected_id():
 		MirrorMode.MIRROR:
@@ -300,21 +303,9 @@ func _update_scene_transform() -> void:
 			should_mirror = is_front_camera
 	mirror_container.scale = Vector2(-1.0 if should_mirror else 1.0, 1.0)
 
-	# Apply rotation (Web: browser handles, Others: use feed_transform)
 	if OS.get_name() == "Web":
 		_update_rotation_container_layout(0.0)
-		if _is_mobile_web():
-			# Mobile Web: some browsers rotate preview_size, others don't - detect and adapt
-			var display_size := DisplayServer.window_get_size()
-			var device_is_portrait := display_size.x < display_size.y
-			var preview_is_portrait := layout_size.x < layout_size.y
-			if device_is_portrait == preview_is_portrait:
-				aspect_container.ratio = layout_size.x / layout_size.y
-			else:
-				aspect_container.ratio = layout_size.y / layout_size.x
-		else:
-			# PC Web: camera is always landscape
-			aspect_container.ratio = layout_size.x / layout_size.y
+		aspect_container.ratio = preview_size.x / preview_size.y
 	else:
 		var feed_rotation := camera_feed.feed_transform.get_rotation()
 		_update_rotation_container_layout(feed_rotation)
@@ -364,34 +355,24 @@ func _get_fps(format: Dictionary) -> float:
 	return float(numerator) / float(denominator)
 
 
-# Detect YCbCr color range from format dictionary and platform
-# Full Range: Y=0-255, CbCr=0-255
-# Video Range: Y=16-235, CbCr=16-240
 func _get_color_range(format: Dictionary) -> int:
-	# Check explicit color_range key first (iOS provides this)
 	var color_range_str: String = format.get("color_range", "")
 	if color_range_str == "full":
 		return ColorRange.FULL
 	if color_range_str == "video":
 		return ColorRange.VIDEO
 
-	# Platform-specific defaults
 	var os_name := OS.get_name()
 	match os_name:
 		"Android":
-			# Android YUV_420_888 is typically Video Range
 			return ColorRange.VIDEO
 		"Windows":
-			# Windows NV12/YUY2 are typically Video Range
 			return ColorRange.VIDEO
 		"Linux":
-			# Linux V4L2 formats are typically Full Range
 			return ColorRange.FULL
 		"macOS":
-			# macOS hardcodes Full Range in implementation
 			return ColorRange.FULL
 		"iOS":
-			# iOS without explicit range indicator - default to Full
 			return ColorRange.FULL
 		_:
 			return ColorRange.FULL
@@ -407,7 +388,6 @@ func _on_frame_changed() -> void:
 		_setup_textures()
 		_update_scene_transform()
 
-	# Update scene transform only when feed_transform changes
 	var current_transform := camera_feed.feed_transform
 	if current_transform != _last_feed_transform:
 		_last_feed_transform = current_transform
@@ -451,19 +431,17 @@ func _setup_textures() -> void:
 			print("Skip formats that are not supported.")
 			return
 
-	# Set color range based on format and platform
 	var selected_index: int = format_list.selected
 	if selected_index >= 0 and selected_index < _cached_formats.size():
 		var color_range := _get_color_range(_cached_formats[selected_index])
 		mat.set_shader_parameter(&"color_range", color_range)
 
-	var preview_size := _get_selected_format_size()
+	var preview_size := texture_size
 	if preview_size.round().x <= 0 or preview_size.round().y <= 0:
-		preview_size = texture_size
+		preview_size = _get_selected_format_size()
 	if preview_size.round().x <= 0 or preview_size.round().y <= 0:
 		return
 
-	# Create placeholder texture with correct size
 	var white_image := Image.create(int(preview_size.x), int(preview_size.y), false, Image.FORMAT_RGBA8)
 	white_image.fill(Color.WHITE)
 	camera_preview.texture = ImageTexture.create_from_image(white_image)
@@ -508,11 +486,10 @@ func _request_camera_permission() -> bool:
 
 	while true:
 		var result = await get_tree().on_request_permissions_result
-		# result = [permission_name: String, granted: bool]
 		if result[0] == CAMERA_PERMISSION:
 			return result[1]
 
-	return false  # Unreachable
+	return false
 
 
 func _on_permission_button_pressed() -> void:
