@@ -1,4 +1,4 @@
-[gd_scene load_steps=13 format=3 uid="uid://oiv4p8ii3am4"]
+[gd_scene format=3 uid="uid://oiv4p8ii3am4"]
 
 [ext_resource type="Script" uid="uid://dxaoavn781kxe" path="res://camerafeed.gd" id="1_fuswq"]
 [ext_resource type="Shader" uid="uid://dhjh7s6i7jnlp" path="res://ycbcr_to_rgb.gdshader" id="2_0uyi5"]
@@ -106,7 +106,6 @@ anchor_right = 1.0
 anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
-stretch_mode = 2
 
 [node name="CameraPreview" type="TextureRect" parent="CameraDisplay/MirrorContainer/RotationContainer/AspectContainer" unique_id=1118546183]
 material = SubResource("ShaderMaterial_lgiw1")
@@ -199,15 +198,15 @@ text = "Format"
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 
-[node name="MirrorLabel" type="Label" parent="DrawerContainer/Drawer/DrawerContent/VBoxContainer"]
+[node name="MirrorLabel" type="Label" parent="DrawerContainer/Drawer/DrawerContent/VBoxContainer" unique_id=1347198467]
 layout_mode = 2
 text = "Mirror"
 
-[node name="MirrorList" type="OptionButton" parent="DrawerContainer/Drawer/DrawerContent/VBoxContainer"]
+[node name="MirrorList" type="OptionButton" parent="DrawerContainer/Drawer/DrawerContent/VBoxContainer" unique_id=509394754]
 custom_minimum_size = Vector2(0, 40)
 layout_mode = 2
 
-[node name="PermissionPanel" type="ColorRect" parent="."]
+[node name="PermissionPanel" type="ColorRect" parent="." unique_id=2115231342]
 visible = false
 layout_mode = 1
 anchors_preset = 15
@@ -217,7 +216,7 @@ grow_horizontal = 2
 grow_vertical = 2
 color = Color(0, 0, 0, 0.85)
 
-[node name="CenterContainer" type="CenterContainer" parent="PermissionPanel"]
+[node name="CenterContainer" type="CenterContainer" parent="PermissionPanel" unique_id=1481736009]
 layout_mode = 1
 anchors_preset = 15
 anchor_right = 1.0
@@ -225,16 +224,16 @@ anchor_bottom = 1.0
 grow_horizontal = 2
 grow_vertical = 2
 
-[node name="VBoxContainer" type="VBoxContainer" parent="PermissionPanel/CenterContainer"]
+[node name="VBoxContainer" type="VBoxContainer" parent="PermissionPanel/CenterContainer" unique_id=1294939921]
 layout_mode = 2
 theme_override_constants/separation = 30
 
-[node name="Label" type="Label" parent="PermissionPanel/CenterContainer/VBoxContainer"]
+[node name="Label" type="Label" parent="PermissionPanel/CenterContainer/VBoxContainer" unique_id=6304734]
 layout_mode = 2
 text = "Camera permission is required"
 horizontal_alignment = 1
 
-[node name="PermissionButton" type="Button" parent="PermissionPanel/CenterContainer/VBoxContainer"]
+[node name="PermissionButton" type="Button" parent="PermissionPanel/CenterContainer/VBoxContainer" unique_id=1866837470]
 custom_minimum_size = Vector2(200, 60)
 layout_mode = 2
 size_flags_horizontal = 4

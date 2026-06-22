@@ -89,19 +89,19 @@ func _adjust_ui() -> void:
 		_update_rotation_container_layout(rotation_container.rotation)
 
 
-func _update_rotation_container_layout(rotation: float) -> void:
+func _update_rotation_container_layout(target_rotation: float) -> void:
 	if not mirror_container or not rotation_container:
 		return
 
 	var display_size: Vector2 = mirror_container.size
-	var is_sideways: bool = absf(sin(rotation)) > absf(cos(rotation))
+	var is_sideways: bool = absf(sin(target_rotation)) > absf(cos(target_rotation))
 	var layout_size: Vector2 = Vector2(display_size.y, display_size.x) if is_sideways else display_size
 	rotation_container.rotation = 0.0
 	rotation_container.set_anchors_preset(Control.PRESET_TOP_LEFT, false)
 	rotation_container.position = (display_size - layout_size) / 2.0
 	rotation_container.size = layout_size
 	rotation_container.pivot_offset = layout_size / 2.0
-	rotation_container.rotation = rotation
+	rotation_container.rotation = target_rotation
 
 
 func _adjust_content_scale() -> void:
