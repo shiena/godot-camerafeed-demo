@@ -1,6 +1,7 @@
 extends Control
 
 const CAMERA_DEACTIVATION_DELAY := 0.1
+const WEB_SWITCH_MAX_RETRIES := 6
 const DISPLAY_PADDING := 40.0
 const BASE_VIEWPORT_WIDTH := 720.0
 
@@ -21,6 +22,10 @@ enum ColorRange { FULL = 0, VIDEO = 1 }
 @onready var permission_panel := $PermissionPanel
 
 var camera_feed: CameraFeed
+var _switching_to_feed: CameraFeed = null
+var _switch_fallback_feed: CameraFeed = null
+var _switch_fallback_format_index := 0
+var _switch_retry_count := 0
 var _initialized := false
 var _cached_formats: Array = []
 var _last_feed_transform: Transform2D
@@ -163,17 +168,144 @@ func _on_camera_list_item_selected(index: int) -> void:
 	if index < 0 or index >= camera_feeds.size():
 		return
 
+	var new_feed: CameraFeed = camera_feeds[index]
+	if new_feed == camera_feed:
+		return
+
+	if OS.get_name() == "Web" and camera_feed != null and camera_feed.feed_is_active:
+		await _switch_camera_feed_with_retry(new_feed)
+		return
+
 	if camera_feed and camera_feed.feed_is_active:
 		camera_feed.feed_is_active = false
 		await get_tree().create_timer(CAMERA_DEACTIVATION_DELAY).timeout
 	if camera_feed and camera_feed.format_changed.is_connected(_on_camera_format_changed):
 		camera_feed.format_changed.disconnect(_on_camera_format_changed)
 
-	camera_feed = camera_feeds[index]
+	camera_feed = new_feed
 	if not camera_feed.format_changed.is_connected(_on_camera_format_changed):
 		camera_feed.format_changed.connect(_on_camera_format_changed, ConnectFlags.CONNECT_DEFERRED)
 	_cached_formats = []
 	await _update_format_list()
+
+
+func _switch_camera_feed_with_retry(new_feed: CameraFeed) -> void:
+	_switching_to_feed = new_feed
+	_switch_fallback_feed = camera_feed
+	_switch_fallback_format_index = max(0, format_list.selected)
+	_switch_retry_count = 0
+	start_or_stop_button.disabled = true
+
+	camera_feed.feed_is_active = false
+	await get_tree().create_timer(CAMERA_DEACTIVATION_DELAY).timeout
+
+	if camera_feed.format_changed.is_connected(_on_camera_format_changed):
+		camera_feed.format_changed.disconnect(_on_camera_format_changed)
+
+	camera_feed = new_feed
+	if not camera_feed.format_changed.is_connected(_on_camera_format_changed):
+		camera_feed.format_changed.connect(_on_camera_format_changed, ConnectFlags.CONNECT_DEFERRED)
+	_prepare_switch_format_list()
+	_start_switch_target_attempt()
+
+
+func _prepare_switch_format_list() -> void:
+	format_list.clear()
+	_cached_formats = camera_feed.get_formats()
+	if _cached_formats.is_empty():
+		_cached_formats = [{}]
+		format_list.add_item("Default")
+		format_list.disabled = true
+		return
+
+	format_list.disabled = false
+	for format: Dictionary in _cached_formats:
+		format_list.add_item(_get_format_item_text(format))
+	format_list.select(0)
+	camera_feed.set_format(0, {})
+
+
+func _start_switch_target_attempt() -> void:
+	if _switching_to_feed == null:
+		return
+
+	if not camera_feed.activation_status_changed.is_connected(_on_switch_activation_status_changed):
+		camera_feed.activation_status_changed.connect(_on_switch_activation_status_changed)
+	if not camera_feed.activation_failed.is_connected(_on_switch_activation_failed):
+		camera_feed.activation_failed.connect(_on_switch_activation_failed, ConnectFlags.CONNECT_ONE_SHOT)
+
+	_start_camera_feed()
+
+
+func _on_switch_activation_status_changed(status: int) -> void:
+	if status != CameraFeed.FEED_ACTIVE or _switching_to_feed == null:
+		return
+
+	var new_feed := _switching_to_feed
+	_switching_to_feed = null
+	_switch_fallback_feed = null
+	_switch_fallback_format_index = 0
+	_switch_retry_count = 0
+	if new_feed.activation_status_changed.is_connected(_on_switch_activation_status_changed):
+		new_feed.activation_status_changed.disconnect(_on_switch_activation_status_changed)
+	if new_feed.activation_failed.is_connected(_on_switch_activation_failed):
+		new_feed.activation_failed.disconnect(_on_switch_activation_failed)
+
+	camera_feed = new_feed
+	if not camera_feed.frame_changed.is_connected(_on_frame_changed):
+		camera_feed.frame_changed.connect(_on_frame_changed)
+	_texture_initialized = false
+	_last_feed_transform = Transform2D()
+	_cached_formats = []
+	_refresh_format_list()
+	if format_list.item_count > 0:
+		format_list.select(0)
+	start_or_stop_button.disabled = false
+	start_or_stop_button.text = "Stop"
+
+
+func _on_switch_activation_failed(error: String) -> void:
+	push_error("Camera switch failed: " + error)
+	var failed_feed := _switching_to_feed
+	if failed_feed == null:
+		return
+
+	if failed_feed.activation_status_changed.is_connected(_on_switch_activation_status_changed):
+		failed_feed.activation_status_changed.disconnect(_on_switch_activation_status_changed)
+	if failed_feed.activation_failed.is_connected(_on_switch_activation_failed):
+		failed_feed.activation_failed.disconnect(_on_switch_activation_failed)
+
+	if _switch_retry_count < WEB_SWITCH_MAX_RETRIES:
+		_switch_retry_count += 1
+		if failed_feed.feed_is_active:
+			failed_feed.feed_is_active = false
+		await get_tree().create_timer(CAMERA_DEACTIVATION_DELAY).timeout
+		_start_switch_target_attempt()
+		return
+
+	var fallback_feed := _switch_fallback_feed
+	var fallback_format_index := _switch_fallback_format_index
+	_switching_to_feed = null
+	_switch_fallback_feed = null
+	_switch_fallback_format_index = 0
+	_switch_retry_count = 0
+
+	if failed_feed.format_changed.is_connected(_on_camera_format_changed):
+		failed_feed.format_changed.disconnect(_on_camera_format_changed)
+
+	if fallback_feed:
+		camera_feed = fallback_feed
+		if not camera_feed.format_changed.is_connected(_on_camera_format_changed):
+			camera_feed.format_changed.connect(_on_camera_format_changed, ConnectFlags.CONNECT_DEFERRED)
+		await _restore_fallback_feed(fallback_format_index)
+
+	var feeds := CameraServer.feeds()
+	for i: int in feeds.size():
+		if feeds[i] == camera_feed:
+			camera_list.select(i)
+			break
+	start_or_stop_button.disabled = false
+	start_or_stop_button.text = "Stop" if camera_feed and camera_feed.feed_is_active else "Start"
 
 
 func _update_format_list() -> void:
@@ -199,6 +331,25 @@ func _update_format_list() -> void:
 
 	format_list.selected = 0
 	await _on_format_list_item_selected(0)
+
+
+func _restore_fallback_feed(format_index: int) -> void:
+	format_list.clear()
+	_cached_formats = camera_feed.get_formats()
+	if _cached_formats.is_empty():
+		_cached_formats = [{}]
+		format_list.add_item("Default")
+		format_list.disabled = true
+	else:
+		format_list.disabled = false
+		for format: Dictionary in _cached_formats:
+			format_list.add_item(_get_format_item_text(format))
+		format_index = clampi(format_index, 0, _cached_formats.size() - 1)
+		format_list.select(format_index)
+		camera_feed.set_format(format_index, {})
+
+	await get_tree().process_frame
+	_start_camera_feed()
 
 
 func _get_format_item_text(format: Dictionary) -> String:
@@ -509,6 +660,17 @@ func _notification(what: int) -> void:
 
 
 func _exit_tree() -> void:
+	if _switching_to_feed:
+		if _switching_to_feed.activation_status_changed.is_connected(_on_switch_activation_status_changed):
+			_switching_to_feed.activation_status_changed.disconnect(_on_switch_activation_status_changed)
+		if _switching_to_feed.activation_failed.is_connected(_on_switch_activation_failed):
+			_switching_to_feed.activation_failed.disconnect(_on_switch_activation_failed)
+		if _switching_to_feed.format_changed.is_connected(_on_camera_format_changed):
+			_switching_to_feed.format_changed.disconnect(_on_camera_format_changed)
+		_switching_to_feed = null
+	_switch_fallback_feed = null
+	_switch_fallback_format_index = 0
+	_switch_retry_count = 0
 	if camera_feed and camera_feed.format_changed.is_connected(_on_camera_format_changed):
 		camera_feed.format_changed.disconnect(_on_camera_format_changed)
 	if camera_feed and camera_feed.feed_is_active:
